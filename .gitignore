@@ -14,6 +14,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.company.example
 
 # ---------- Data & generated artifacts (large, rebuildable, or not ours to publish) ----------
 data/raw/*
@@ -27,6 +28,8 @@ indexes/*
 outputs/*
 !outputs/.gitkeep
 .cache/
+documents/*
+!documents/.gitkeep
 
 # ---------- OS / editors ----------
 .DS_Store

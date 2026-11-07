@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مساعد المستندات</title>
+  <style>
+    :root{font-family:system-ui,"Segoe UI",sans-serif;color:#17233b;background:#f4f6fa;accent-color:#235dbe}
+    *{box-sizing:border-box}body{margin:0}.wrap{max-width:1120px;margin:28px auto;padding:20px}
+    header,.panel{background:white;border:1px solid #dfe6f0;border-radius:20px;padding:26px;margin-bottom:18px;box-shadow:0 6px 24px #17233b04}
+    header{background:linear-gradient(130deg,#12283f,#16464f);color:white;border:0;padding:36px}
+    h1{margin:12px 0;color:inherit;font-size:2rem}h2{font-size:1.15rem;margin:0 0 16px}p{line-height:1.7}.muted{color:#5d6b82}
+    header .muted{color:#cedfe7}.eyebrow{font-size:.7rem;letter-spacing:3px;color:#a7d5d5}.layout{display:grid;grid-template-columns:1.7fr 1fr;gap:20px;align-items:start}
+    .stats{display:flex;gap:12px;margin:22px 0 0}.stat{border:1px solid #ffffff26;border-radius:12px;padding:12px 20px;background:#ffffff0a}.stat strong{display:block;font-size:1.5rem}.stat span{font-size:.8rem;color:#cedfe7}
+    textarea{box-sizing:border-box;width:100%;min-height:110px;padding:14px;border:1px solid #bdc9db;border-radius:10px;font:inherit}
+    button{margin-top:12px;padding:11px 22px;background:#1459a6;color:white;border:0;border-radius:9px;font:inherit;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}#answer{white-space:pre-wrap;line-height:1.8}
+    .source{border-top:1px solid #e4e9f1;padding-top:10px;margin-top:10px;font-size:.95rem}
+    .error{color:#a22525}
+    .notice{background:#edf4ff;border-color:#b9d0ee}select{font:inherit;padding:8px;border:1px solid #bdc9db;border-radius:8px;margin:10px}
+    details{margin-top:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-height:260px;overflow:auto;line-height:1.7}
+    a{color:#1459a6}#setup{line-height:1.8}
+    .secondary{background:#eaf0f8;color:#183b65}.file-actions{display:flex;gap:10px;flex-wrap:wrap}.file-actions button{font-size:.85rem;padding:9px 13px}
+    #directory{display:block;direction:ltr;text-align:left;padding:12px;background:#f2f5fa;border-radius:10px;overflow-wrap:anywhere;font-size:.78rem}
+    #files{width:100%;font:inherit;margin:16px 0 2px}.file-row{padding:12px 0;border-bottom:1px solid #edf0f5;font-size:.85rem;overflow-wrap:anywhere}.file-row a{text-decoration:none}
+    #sync-state,#file-message{font-size:.85rem;line-height:1.8}button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #92b5ee;outline-offset:3px}
+    @media(max-width:760px){.wrap{padding:12px;margin:8px auto}.layout{grid-template-columns:1fr}header,.panel{padding:20px}h1{font-size:1.6rem}.stats{gap:8px}.stat{padding:10px 16px}}
+  </style>
+</head>
+<body><main class="wrap">
+  <header><span class="eyebrow" dir="ltr">DOCUMENT WORKSPACE</span><h1 id="app-name">مساعد المستندات</h1>
+    <p id="welcome" class="muted">ملفاتك، ومعرفتها بين يديك. إجابات عربية وإنجليزية مع المصادر.</p>
+    <div class="stats"><div class="stat"><strong id="document-count">—</strong><span>مستند مفهرس</span></div>
+      <div class="stat"><strong id="chunk-count">—</strong><span>مقطع معرفي</span></div>
+      <div class="stat"><strong>RAG</strong><span id="organization-name">مساحة المستندات</span></div></div></header>
+  <section id="setup" class="panel notice" role="status" aria-live="polite">جارٍ التحقق من إعداد المساعد...</section>
+  <div class="layout"><div>
+  <section class="panel">
+    <h2>اسأل مستنداتك</h2><form id="form"><label for="question">سؤالك / Your question</label>
+      <textarea id="question" required minlength="2" maxlength="4000" placeholder="مثال: ما إجراءات طلب إجازة بحسب الملفات؟"></textarea>
+      <div><label for="mode">طريقة العرض</label><select id="mode">
+        <option value="answer">إجابة بالمساعد</option><option value="sources">البحث في المصادر فقط</option>
+      </select><button id="submit" type="submit" disabled>جارٍ التحقق...</button>
+      <button id="new-chat" type="button" class="secondary">محادثة جديدة</button></div></form>
+  </section>
+  <section id="result" class="panel" hidden><h2>الإجابة</h2><div id="answer"></div>
+    <div id="sources"></div></section></div>
+  <aside class="panel"><h2>قاعدة المعرفة</h2>
+    <p class="muted">ضع الملفات في هذا المجلد، أو ارفعها هنا. تُفهرس الملفات الجديدة والتعديلات تلقائياً.</p>
+    <code id="directory">جارٍ تحميل مسار المستندات...</code>
+    <p id="sync-state" role="status" aria-live="polite"></p>
+    <label for="files">رفع مستندات: PDF، DOCX، XLSX، TXT، MD</label>
+    <input id="files" type="file" multiple accept=".pdf,.docx,.xlsx,.txt,.md">
+    <div class="file-actions"><button id="upload" type="button">رفع وفهرسة</button>
+      <button id="reindex" type="button" class="secondary">مزامنة الآن</button></div>
+    <p id="file-message" role="status" aria-live="polite"></p><div id="document-list"></div>
+    <p class="muted" style="font-size:.8rem">يدعم PDF النصي؛ الملفات المصوّرة تحتاج OCR. تُرسل مقتطفات السؤال إلى مزود التوليد المحدد.</p>
+  </aside></div>
+</main>
+<script>
+const form=document.querySelector("#form"),button=document.querySelector("#submit"),mode=document.querySelector("#mode");
+let conversationId=crypto.randomUUID();
+let pending=false,generationReady=false,preferredMode=null,requestTimeout=70000,knowledgeMode="organization";
+function updateButton(){button.disabled=pending;button.textContent=pending?"جارٍ البحث...":mode.value==="sources"?"ابحث في المصادر":"اسأل"}
+async function refreshStatus(){
+  const response=await fetch("/api/status",{cache:"no-store",signal:AbortSignal.timeout(5000)});
+  if(!response.ok)throw new Error("تعذر التحقق من إعداد المساعد. حدّث الصفحة وحاول مجدداً.");
+  const state=await response.json(),wasReady=generationReady;
+  generationReady=state.generation_configured;requestTimeout=state.request_timeout_seconds*1000;
+  knowledgeMode=state.knowledge_mode;document.title=state.assistant_name;
+  document.querySelector("#app-name").textContent=state.assistant_name;
+  document.querySelector("#organization-name").textContent=state.organization_name;
+  if(knowledgeMode==="academic")document.querySelector("#question").placeholder="مثال: ما الوثائق المطلوبة للتسجيل؟";
+  if(!generationReady)mode.value="sources";
+  else if(!wasReady&&preferredMode!=="sources")mode.value="answer";
+  document.querySelector("#setup").textContent=generationReady?
+    `المزود المحدد: ${state.provider}. يمكنك طلب إجابة أو مراجعة مقتطفات المصادر.`:
+    "وضع المصادر فقط: Gemini غير مهيأ بعد. البحث في المستندات متاح الآن، دون توليد إجابة. لتفعيل المساعد أضف GEMINI_API_KEY إلى ملف .env واحفظه؛ يُقرأ المفتاح تلقائياً عند الإرسال.";
+  updateButton();
+}
+mode.addEventListener("change",()=>{preferredMode=mode.value;updateButton()});
+refreshStatus().catch(error=>{document.querySelector("#setup").textContent=error.message;mode.value="sources";updateButton()});
+form.addEventListener("submit",async event=>{
+  event.preventDefault();if(pending)return;pending=true;updateButton();
+  const result=document.querySelector("#result"),answer=document.querySelector("#answer"),sources=document.querySelector("#sources");
+  result.hidden=false;answer.className="";answer.textContent="";sources.replaceChildren();
+  try{
+    await refreshStatus();
+    const response=await fetch("/api/ask",{method:"POST",signal:AbortSignal.timeout(requestTimeout+5000),headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question:document.querySelector("#question").value,conversation_id:conversationId,mode:mode.value})});
+    const data=await response.json();if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:"تعذر إكمال الطلب. راجع السؤال وحاول مجدداً.");
+    conversationId=data.conversation_id;answer.textContent=data.answer;
+    for(const source of data.sources){const item=document.createElement("div");item.className="source";
+      const title=document.createElement("p");title.textContent=`[${source.citation}] ${source.source}${source.is_latest_version?"":" (نسخة أقدم - مرجع احتياطي)"}`;item.append(title);
+      const details=document.createElement("details"),summary=document.createElement("summary"),excerpt=document.createElement("pre");
+      summary.textContent="عرض المقتطف / View excerpt";excerpt.textContent=source.text||"";
+      details.open=data.provider==="sources_only";details.append(summary,excerpt);item.append(details);
+      if(source.url&&source.url.startsWith("/api/documents/")){
+        const fileLink=document.createElement("a");fileLink.href=source.url;fileLink.target="_blank";fileLink.rel="noopener noreferrer";
+        fileLink.textContent="فتح المستند الأصلي";item.append(fileLink,document.createElement("br"));
+      }
+      for(const match of (source.text||"").matchAll(/https?:\/\/[^\s<>"')\]]+/g)){
+        if(knowledgeMode!=="academic")continue;
+        try{const url=new URL(match[0]);if(url.hostname!=="aaup.edu"&&!url.hostname.endsWith(".aaup.edu"))continue;
+          const link=document.createElement("a");link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";
+          link.textContent="فتح المصدر الرسمي";item.append(link,document.createElement("br"));
+        }catch{}
+      }
+      sources.append(item)}
+  }catch(error){answer.className="error";answer.textContent=error.name==="TimeoutError"||error.name==="AbortError"?
+    "انتهت مهلة الطلب. يمكنك المحاولة مجدداً أو اختيار البحث في المصادر فقط.":error.message}
+  finally{pending=false;updateButton()}
+});
+document.querySelector("#new-chat").addEventListener("click",()=>{
+  if(pending)return;conversationId=crypto.randomUUID();document.querySelector("#result").hidden=true;
+  document.querySelector("#question").value="";
+});
+let workspacePending=false,fileOperation=false;
+async function refreshWorkspace(){
+  if(workspacePending)return;workspacePending=true;
+  try{
+    const responses=await Promise.all([fetch("/api/workspace",{signal:AbortSignal.timeout(10000)}),fetch("/api/documents",{signal:AbortSignal.timeout(10000)})]);
+    if(responses.some(response=>!response.ok))throw new Error("تعذر تحميل حالة الملفات");
+    const [state,documents]=await Promise.all(responses.map(response=>response.json()));
+    document.querySelector("#directory").textContent=state.directory;
+    document.querySelector("#document-count").textContent=state.document_count;
+    document.querySelector("#chunk-count").textContent=state.chunk_count;
+    const failures=Object.entries(state.last_report?.failed||{});
+    const sync=document.querySelector("#sync-state");sync.className=failures.length?"error":"muted";
+    sync.textContent=state.is_syncing?"جارٍ فهرسة الملفات...":failures.length?
+      "ملفات تحتاج مراجعة: "+failures.map(([name,error])=>`${name}: ${error}`).join(" | "):
+      state.document_count?`الفهرس جاهز · فحص تلقائي كل ${state.refresh_interval_seconds} ثانية`:
+      "المجلد فارغ. أضف ملفاتك لبدء بناء قاعدة المعرفة.";
+    const list=document.querySelector("#document-list");list.replaceChildren();
+    for(const entry of documents.slice(0,30)){
+      const row=document.createElement("div"),link=document.createElement("a");row.className="file-row";
+      link.href=entry.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=entry.source;
+      row.append(link);list.append(row);
+    }
+  }finally{workspacePending=false}
+}
+async function updateFiles(upload){
+  if(fileOperation)return;fileOperation=true;
+  const uploadButton=document.querySelector("#upload"),syncButton=document.querySelector("#reindex"),message=document.querySelector("#file-message");
+  uploadButton.disabled=syncButton.disabled=true;message.className="";message.textContent="جارٍ تجهيز الملفات وفهرستها...";
+  try{
+    const body=new FormData();
+    if(upload){const files=document.querySelector("#files").files;if(!files.length)throw new Error("اختر ملفاً أولاً");for(const file of files)body.append("files",file)}
+    const response=await fetch(upload?"/api/documents":"/api/reindex",{method:"POST",body:upload?body:undefined,signal:AbortSignal.timeout(300000)});
+    const report=await response.json();if(!response.ok)throw new Error(typeof report.detail==="string"?report.detail:"تعذر تحديث الملفات");
+    if(Object.keys(report.failed).length)throw new Error(Object.entries(report.failed).map(([name,error])=>`${name}: ${error}`).join(" | "));
+    message.textContent=`اكتملت المزامنة: ${report.added.length} جديد، ${report.updated.length} محدّث، ${report.removed.length} محذوف من الفهرس.`;
+    if(upload)document.querySelector("#files").value="";
+  }catch(error){message.className="error";message.textContent=error.name==="TimeoutError"?"الفهرسة تستغرق وقتاً. تابع الحالة أعلاه؛ قد تواصل المعالجة في الخلفية.":error.message}
+  finally{fileOperation=false;uploadButton.disabled=syncButton.disabled=false;refreshWorkspace().catch(()=>{})}
+}
+document.querySelector("#upload").addEventListener("click",()=>updateFiles(true));
+document.querySelector("#reindex").addEventListener("click",()=>updateFiles(false));
+refreshWorkspace().catch(error=>{document.querySelector("#sync-state").textContent=error.message});
+setInterval(()=>refreshWorkspace().catch(()=>{}),5000);
+</script></body></html>

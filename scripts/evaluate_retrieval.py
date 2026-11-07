@@ -1,13 +1,20 @@
 import json
 
-from rag_aaup.config import PROJECT_ROOT, get_settings
+from rag_aaup.config import PROJECT_ROOT, Settings, get_settings
 from rag_aaup.indexing.database import Database
 from rag_aaup.retrieval.service import HybridRetriever
 
 
 def main() -> None:
     settings = get_settings()
-    database = Database(settings.database_path)
+    database = Database.from_settings(settings)
+    try:
+        evaluate(database, settings)
+    finally:
+        database.close()
+
+
+def evaluate(database: Database, settings: Settings) -> None:
     retriever = HybridRetriever(settings, database)
     cases_path = PROJECT_ROOT / "data" / "eval" / "aaup_questions.jsonl"
     cases = [json.loads(line) for line in cases_path.read_text(encoding="utf-8").splitlines() if line.strip()]

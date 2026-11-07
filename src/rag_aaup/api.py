@@ -1,22 +1,26 @@
 import asyncio
+import base64
+import binascii
+import hmac
 import logging
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from rag_aaup.assistant import AcademicAssistant
-from rag_aaup.config import Settings, get_settings
-from rag_aaup.generation.service import GenerationError
+from rag_aaup.config import Settings, generation_settings, get_settings
+from rag_aaup.generation.service import GenerationError, generation_available
 from rag_aaup.indexing.database import Database
 from rag_aaup.indexing.service import SUPPORTED_SUFFIXES, IndexingService, IndexReport
-from rag_aaup.retrieval.service import HybridRetriever
+from rag_aaup.indexing.vectors import VectorStoreError
+from rag_aaup.retrieval.service import HybridRetriever, SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class Runtime:
 
 def _runtime() -> Runtime:
     settings = get_settings()
-    database = Database(settings.database_path)
+    database = Database.from_settings(settings)
     indexer = IndexingService(settings, database)
     assistant = AcademicAssistant(settings, database, HybridRetriever(settings, database))
     return Runtime(settings, database, indexer, assistant)
@@ -40,7 +44,13 @@ def _runtime() -> Runtime:
 async def _refresh_loop(runtime: Runtime) -> None:
     while True:
         await asyncio.sleep(runtime.settings.refresh_interval_seconds)
-        report: IndexReport = await asyncio.to_thread(runtime.indexer.sync)
+        sync_task = asyncio.create_task(asyncio.to_thread(runtime.indexer.sync))
+        try:
+            report: IndexReport = await asyncio.shield(sync_task)
+        except asyncio.CancelledError:
+            # to_thread keeps running after cancellation. Finish before closing local Qdrant.
+            await sync_task
+            raise
         if report.failed:
             logger.error("Document refresh completed with failures: %s", report.failed)
         if report.added or report.updated:
@@ -51,29 +61,66 @@ async def _refresh_loop(runtime: Runtime) -> None:
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     runtime = _runtime()
     app.state.runtime = runtime
-    initial_report = await asyncio.to_thread(runtime.indexer.sync)
-    if initial_report.failed:
-        logger.error("Initial document indexing had failures: %s", initial_report.failed)
-    refresh_task = asyncio.create_task(_refresh_loop(runtime), name="document-refresh")
+    refresh_task = None
     try:
+        initial_report = await asyncio.to_thread(runtime.indexer.sync)
+        if initial_report.failed:
+            logger.error("Initial document indexing had failures: %s", initial_report.failed)
+        refresh_task = asyncio.create_task(_refresh_loop(runtime), name="document-refresh")
         yield
     finally:
-        refresh_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await refresh_task
+        try:
+            if refresh_task is not None:
+                refresh_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await refresh_task
+        finally:
+            await asyncio.to_thread(runtime.database.close)
+            app.state.runtime = None
 
 
 app = FastAPI(
-    title="AAUP Smart Academic Advisor",
-    description="Arabic/English document-grounded assistant for admissions and registration.",
+    title="Document RAG Workspace",
+    description="Arabic/English answers grounded in the configured organization's documents.",
     version="0.1.0",
     lifespan=_lifespan,
 )
 
 
+@app.middleware("http")
+async def access_control(request: Request, call_next):
+    runtime = getattr(app.state, "runtime", None)
+    settings = runtime.settings if runtime else get_settings()
+    if settings.app_password and settings.app_password.get_secret_value():
+        valid = False
+        try:
+            scheme, credentials = request.headers.get("Authorization", "").split(" ", 1)
+            username, password = base64.b64decode(credentials, validate=True).decode("utf-8").split(":", 1)
+            valid = (
+                scheme.casefold() == "basic"
+                and hmac.compare_digest(username.encode(), settings.app_username.encode())
+                and hmac.compare_digest(password.encode(), settings.app_password.get_secret_value().encode())
+            )
+        except (ValueError, UnicodeError, binascii.Error):
+            pass
+        if not valid:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Workspace sign-in required"},
+                headers={"WWW-Authenticate": 'Basic realm="Document workspace", charset="UTF-8"'},
+            )
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 class AskRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     question: str = Field(min_length=2, max_length=4000)
     conversation_id: str | None = Field(default=None, max_length=80)
+    mode: Literal["answer", "sources"] = "answer"
 
 
 def _get_runtime() -> Runtime:
@@ -88,68 +135,43 @@ def _report_dict(report: IndexReport) -> dict[str, object]:
         "added": report.added,
         "updated": report.updated,
         "unchanged": report.unchanged,
+        "removed": report.removed,
         "failed": report.failed,
     }
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
-    return """<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>المرشد الأكاديمي الذكي</title>
-  <style>
-    :root{font-family:system-ui,"Segoe UI",sans-serif;color:#17233b;background:#f3f6fb}
-    body{margin:0}.wrap{max-width:850px;margin:6vh auto;padding:24px}
-    header,.panel{background:white;border:1px solid #dfe6f0;border-radius:16px;padding:24px;margin-bottom:16px}
-    h1{margin-top:0;color:#153a66}p{line-height:1.7}.muted{color:#5d6b82}
-    textarea{box-sizing:border-box;width:100%;min-height:110px;padding:14px;border:1px solid #bdc9db;border-radius:10px;font:inherit}
-    button{margin-top:12px;padding:11px 22px;background:#1459a6;color:white;border:0;border-radius:9px;font:inherit;cursor:pointer}
-    button:disabled{opacity:.6;cursor:wait}#answer{white-space:pre-wrap;line-height:1.8}
-    .source{border-top:1px solid #e4e9f1;padding-top:10px;margin-top:10px;font-size:.95rem}
-    .error{color:#a22525}
-  </style>
-</head>
-<body><main class="wrap">
-  <header><h1>المرشد الأكاديمي الذكي</h1>
-    <p class="muted">اسأل عن القبول والتسجيل. الإجابات تعتمد على المستندات المفهرسة وتعرض مصادرها.</p></header>
-  <section class="panel">
-    <form id="form"><label for="question">سؤالك / Your question</label>
-      <textarea id="question" required minlength="2" placeholder="مثال: ما الوثائق المطلوبة للتسجيل؟"></textarea>
-      <button id="submit" type="submit">اسأل</button></form>
-  </section>
-  <section id="result" class="panel" hidden><h2>الإجابة</h2><div id="answer"></div>
-    <div id="sources"></div></section>
-</main>
-<script>
-const form=document.querySelector("#form"),button=document.querySelector("#submit");
-let conversationId=crypto.randomUUID();
-form.addEventListener("submit",async event=>{
-  event.preventDefault();button.disabled=true;button.textContent="جارٍ البحث...";
-  const result=document.querySelector("#result"),answer=document.querySelector("#answer"),sources=document.querySelector("#sources");
-  result.hidden=false;answer.textContent="";sources.replaceChildren();
-  try{
-    const response=await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({question:document.querySelector("#question").value,conversation_id:conversationId})});
-    const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر إكمال الطلب");
-    conversationId=data.conversation_id;answer.textContent=data.answer;
-    for(const source of data.sources){const item=document.createElement("p");item.className="source";
-      item.textContent=`[${source.citation}] ${source.source}${source.is_latest_version?"":" (نسخة أقدم - مرجع احتياطي)"}`;
-      sources.append(item)}
-  }catch(error){answer.className="error";answer.textContent=error.message}
-  finally{button.disabled=false;button.textContent="اسأل"}
-});
-</script></body></html>"""
+    return (Path(__file__).parent / "web" / "index.html").read_text(encoding="utf-8")
 
 
 @app.get("/api/health")
-async def health() -> dict[str, object]:
+async def health(response: Response) -> dict[str, object]:
     runtime = _get_runtime()
+    ready = runtime.database.vectors_ready
+    response.status_code = 200 if ready else 503
     return {
-        "status": "ok",
+        "status": "ok" if ready else "degraded",
         "indexed_documents": runtime.database.document_count(),
         "raw_directory": str(runtime.settings.raw_dir),
+        "vector_backend": "qdrant",
+        "vector_mode": "server" if runtime.settings.qdrant_url else "local",
+        "vector_ready": ready,
+    }
+
+
+@app.get("/api/status")
+async def status(response: Response) -> dict[str, object]:
+    runtime = _get_runtime()
+    settings = generation_settings(runtime.settings)
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "provider": settings.llm_provider,
+        "generation_configured": generation_available(settings),
+        "request_timeout_seconds": settings.llm_timeout_seconds + 30,
+        "assistant_name": runtime.settings.assistant_name,
+        "organization_name": runtime.settings.organization_name,
+        "knowledge_mode": runtime.settings.knowledge_mode,
     }
 
 
@@ -169,13 +191,43 @@ async def documents() -> list[dict[str, object]]:
             latest[document.family_key] = document.document_id
     return [
         {
+            "document_id": document.document_id,
             "title": document.title,
             "source": document.relative_path,
             "version": document.version_sort,
             "is_latest": latest[document.family_key] == document.document_id,
+            "url": f"/api/documents/{document.document_id}/file",
         }
         for document in all_documents
     ]
+
+
+@app.get("/api/workspace")
+async def workspace() -> dict[str, object]:
+    runtime = _get_runtime()
+    return {
+        "directory": str(runtime.settings.raw_dir.resolve()),
+        "document_count": runtime.database.document_count(),
+        "chunk_count": runtime.database.chunk_count(),
+        "is_syncing": runtime.indexer.is_syncing,
+        "last_synced_at": runtime.indexer.last_synced_at,
+        "refresh_interval_seconds": runtime.settings.refresh_interval_seconds,
+        "supported_extensions": sorted(SUPPORTED_SUFFIXES),
+        "last_report": _report_dict(runtime.indexer.last_report) if runtime.indexer.last_report else None,
+    }
+
+
+@app.get("/api/documents/{document_id}/file")
+async def source_file(document_id: int) -> FileResponse:
+    runtime = _get_runtime()
+    document = next((item for item in runtime.database.documents() if item.document_id == document_id), None)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document is not indexed")
+    root = runtime.settings.raw_dir.resolve()
+    path = (root / document.relative_path).resolve()
+    if not path.is_relative_to(root) or not path.is_file():
+        raise HTTPException(status_code=404, detail="Source document is unavailable")
+    return FileResponse(path, filename=path.name, content_disposition_type="inline")
 
 
 @app.post("/api/reindex")
@@ -201,15 +253,30 @@ async def upload_documents(files: Annotated[list[UploadFile], File()]) -> dict[s
 
     runtime.settings.raw_dir.mkdir(parents=True, exist_ok=True)
     stored: list[str] = []
+    size_limit = runtime.settings.max_upload_size_mb * 1024 * 1024
     for file in files:
         filename = Path(file.filename or "").name
         if not filename or filename in {".", ".."}:
             raise HTTPException(status_code=400, detail="Every upload must have a valid filename")
         destination = runtime.settings.raw_dir / filename
-        content = await file.read()
-        await asyncio.to_thread(destination.write_bytes, content)
-        stored.append(filename)
-        await file.close()
+        if not destination.resolve().is_relative_to(runtime.settings.raw_dir.resolve()):
+            raise HTTPException(status_code=400, detail="Invalid upload destination")
+        temporary = destination.with_name(f".{uuid.uuid4().hex}.upload")
+        total = 0
+        try:
+            with temporary.open("wb") as output:
+                while content := await file.read(1024 * 1024):
+                    total += len(content)
+                    if total > size_limit:
+                        raise HTTPException(
+                            status_code=413, detail="File exceeds the configured upload limit"
+                        )
+                    output.write(content)
+            await asyncio.to_thread(temporary.replace, destination)
+            stored.append(filename)
+        finally:
+            temporary.unlink(missing_ok=True)
+            await file.close()
 
     report = await asyncio.to_thread(runtime.indexer.sync)
     return {"uploaded": stored, **_report_dict(report)}
@@ -218,28 +285,72 @@ async def upload_documents(files: Annotated[list[UploadFile], File()]) -> dict[s
 @app.post("/api/ask")
 async def ask(request: AskRequest) -> dict[str, object]:
     runtime = _get_runtime()
-    try:
-        response = await asyncio.to_thread(
-            runtime.assistant.answer,
-            request.question,
-            request.conversation_id or str(uuid.uuid4()),
+    settings = generation_settings(runtime.settings)
+    if request.mode == "answer" and not generation_available(settings) and runtime.database.document_count():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "توليد الإجابات غير مفعّل: أضف مفتاح Gemini إلى GEMINI_API_KEY في ملف .env واحفظه. "
+                "سيُقرأ تلقائياً دون إعادة تشغيل. يمكنك الآن اختيار البحث في المصادر."
+            ),
         )
-    except GenerationError as error:
+    try:
+        timeout = settings.llm_timeout_seconds + 30
+        if request.mode == "sources":
+            sources = await asyncio.wait_for(
+                asyncio.to_thread(runtime.assistant.retriever.search, request.question), timeout=timeout
+            )
+            arabic = any("\u0600" <= char <= "\u06ff" for char in request.question)
+            return {
+                "conversation_id": request.conversation_id or str(uuid.uuid4()),
+                "provider": "sources_only",
+                "answer": (
+                    "هذه مقتطفات مسترجعة للمراجعة، وليست إجابة مولّدة أو تأكيداً بأن كل مقتطف يجيب عن السؤال."
+                    if arabic
+                    else "These are retrieved excerpts for review, not a generated answer or verified claims."
+                )
+                if sources
+                else ("لا توجد مقتطفات كافية في الفهرس." if arabic else "No supporting excerpts were found."),
+                "sources": [_source_dict(source) for source in sources],
+            }
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                runtime.assistant.answer,
+                request.question,
+                request.conversation_id or str(uuid.uuid4()),
+                settings,
+            ),
+            timeout=timeout,
+        )
+    except TimeoutError as error:
+        raise HTTPException(
+            status_code=504,
+            detail="استغرق الطلب وقتاً أطول من المسموح. حاول مجدداً أو استخدم البحث في المصادر.",
+        ) from error
+    except (GenerationError, VectorStoreError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return {
         "conversation_id": response.conversation_id,
         "answer": response.answer,
         "provider": response.provider,
-        "sources": [
-            {
-                "citation": source.citation,
-                "source": source.source,
-                "title": source.title,
-                "page": source.page,
-                "section": source.section,
-                "topic": source.topic,
-                "is_latest_version": source.is_latest_version,
-            }
-            for source in response.sources
-        ],
+        "sources": [_source_dict(source) for source in response.sources],
+    }
+
+
+def _source_dict(source: SearchResult) -> dict[str, object]:
+    return {
+        "citation": source.citation,
+        "source": source.source,
+        "title": source.title,
+        "page": source.page,
+        "section": source.section,
+        "topic": source.topic,
+        "is_latest_version": source.is_latest_version,
+        "text": source.text,
+        "url": (
+            f"/api/documents/{source.document_id}/file"
+            + (f"#page={source.page}" if source.page is not None else "")
+        )
+        if source.document_id is not None
+        else None,
     }

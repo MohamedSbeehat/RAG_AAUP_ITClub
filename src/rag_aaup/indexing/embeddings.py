@@ -13,7 +13,10 @@ def get_model() -> SentenceTransformer:
     device = settings.embedding_device
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    return SentenceTransformer(settings.embedding_model, device=device)
+    try:
+        return SentenceTransformer(settings.embedding_model, device=device, local_files_only=True)
+    except OSError:
+        return SentenceTransformer(settings.embedding_model, device=device)
 
 
 def encode_documents(texts: list[str]) -> np.ndarray:

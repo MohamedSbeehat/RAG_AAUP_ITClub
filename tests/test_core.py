@@ -62,6 +62,7 @@ def test_incremental_index_uses_official_aaup_corpus(tmp_path: Path, monkeypatch
     update_report = indexer.sync()
     assert update_report.updated == [source_path.name]
     assert database.document_count() == 1
+    database.close()
 
 
 def test_newer_version_preferred_and_old_version_is_fallback(
@@ -128,3 +129,4 @@ def test_newer_version_preferred_and_old_version_is_fallback(
     latest = retriever.search("Doctor of Medicine admission average")
     assert latest[0].source.startswith("aaup/current-source.md")
     assert latest[0].is_latest_version
+    database.close()
