@@ -1,0 +1,9 @@
+reviewer_pack/**/*.md text eol=lf
+reviewer_pack/**/*.txt text eol=lf
+reviewer_pack/*.json text eol=lf
+reviewer_pack/**/*.json text eol=lf
+reviewer_pack/**/*.pdf binary
+docs/presentation/*.json text eol=lf
+docs/presentation/*.md text eol=lf
+docs/presentation/*.pdf binary
+docs/presentation/*.pptx binary

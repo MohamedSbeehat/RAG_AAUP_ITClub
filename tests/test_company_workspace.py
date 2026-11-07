@@ -143,6 +143,19 @@ def test_company_prompt_does_not_use_academic_role(company: Settings) -> None:
     assert "academic-advising assistant" not in prompt
 
 
+def test_old_source_link_cannot_silently_open_updated_file(company: Settings, monkeypatch) -> None:
+    monkeypatch.setattr(api, "get_settings", lambda: company)
+    with TestClient(api.app) as client:
+        client.post("/api/documents", files={"files": ("policy.txt", b"Old verified policy", "text/plain")})
+        old_link = client.get("/api/documents").json()[0]["url"]
+        (company.raw_dir / "policy.txt").write_text("Updated policy", encoding="utf-8")
+        assert client.get(old_link).status_code == 409
+        assert client.post("/api/reindex").status_code == 200
+        assert client.get(old_link).status_code == 409
+        current_link = client.get("/api/documents").json()[0]["url"]
+        assert client.get(current_link).text == "Updated policy"
+
+
 def test_unknown_citations_are_rejected_without_saving_exchange(company: Settings, monkeypatch) -> None:
     database = Database.from_settings(company)
     try:

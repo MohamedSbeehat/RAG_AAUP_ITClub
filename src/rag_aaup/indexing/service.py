@@ -14,7 +14,7 @@ from rag_aaup.ingestion.loaders import load_document
 from rag_aaup.processing.chunking import chunk_pages
 
 logger = logging.getLogger(__name__)
-SUPPORTED_SUFFIXES = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
+SUPPORTED_SUFFIXES = {".pdf", ".docx", ".xlsx", ".txt", ".md", ".png", ".jpg", ".jpeg"}
 
 
 @dataclass
@@ -34,6 +34,9 @@ class IndexingService:
         self.last_report: IndexReport | None = None
         self.last_synced_at: str | None = None
         self.is_syncing = False
+        self.current_file: str | None = None
+        self.completed_files = 0
+        self.total_files = 0
 
     def sync(self) -> IndexReport:
         with self._sync_lock:
@@ -45,6 +48,7 @@ class IndexingService:
                 return report
             finally:
                 self.is_syncing = False
+                self.current_file = None
 
     def _sync(self) -> IndexReport:
         report = IndexReport()
@@ -66,14 +70,18 @@ class IndexingService:
             report.failed["[directory]"] = f"Cannot scan document directory ({type(error).__name__})."
             return report
         found = {path.relative_to(self.settings.raw_dir).as_posix() for path in paths}
+        self.total_files = len(paths)
+        self.completed_files = 0
         for path in paths:
             relative_path = path.relative_to(self.settings.raw_dir).as_posix()
+            self.current_file = relative_path
             try:
                 self._index_file(path, relative_path, report)
             except (OSError, ValueError, RuntimeError) as error:
                 message = f"{type(error).__name__}: {error}"
                 report.failed[relative_path] = message
                 logger.exception("Could not index document %s", relative_path)
+            self.completed_files += 1
         if self.settings.remove_deleted_documents:
             for document in self.database.documents():
                 if document.relative_path not in found:

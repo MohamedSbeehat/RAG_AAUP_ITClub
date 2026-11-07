@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from rag_aaup.config import Settings
 from rag_aaup.indexing.database import Database, DocumentRecord, StoredChunk
 from rag_aaup.indexing.embeddings import encode_query
+from rag_aaup.processing.chunking import normalize_for_search
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class SearchResult:
     is_latest_version: bool
     score: float
     document_id: int | None = None
+    content_hash: str | None = None
 
 
 def _fts_query(query: str) -> str:
@@ -42,24 +44,48 @@ class HybridRetriever:
         self.settings = settings
         self.database = database
 
-    def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
+    def search(
+        self, query: str, limit: int | None = None, document_id: int | None = None
+    ) -> list[SearchResult]:
         limit = self.settings.retrieval_limit if limit is None else limit
         if limit < 1 or not query.strip():
             return []
         with self.database.search_snapshot():
-            return self._search(query, limit)
+            return self._search(query, limit, document_id)
 
-    def _search(self, query: str, limit: int) -> list[SearchResult]:
+    def _search(self, query: str, limit: int, document_id: int | None) -> list[SearchResult]:
         documents = self.database.documents()
+        if document_id is not None:
+            documents = [item for item in documents if item.document_id == document_id]
         if not documents:
             return []
-        query_embedding = encode_query(query)
-        candidate_limit = max(self.settings.retrieval_candidate_limit, limit * 4)
-        dense_score_by_id = dict(self.database.dense_search(query_embedding, candidate_limit))
-        lexical_query = _fts_query(query)
-        lexical_scores = (
-            dict(self.database.lexical_search(lexical_query, candidate_limit)) if lexical_query else {}
+        normalized = normalize_for_search(query)
+        total_hours = bool(
+            re.search(
+                r"(?:total|overall).{0,25}(?:credit|hours)|(?:اجمالي|مجموع).{0,25}ساع|ساع.{0,20}تخرج",
+                normalized,
+            )
         )
+        semantic_query = query + ("\nإجمالي الساعات اللازمة للدرجة متطلبات التخرج" if total_hours else "")
+        identifiers = set(re.findall(r"(?<!\d)\d{8,12}(?!\d)", query))
+        query_embedding = encode_query(semantic_query)
+        candidate_limit = max(self.settings.retrieval_candidate_limit, limit * 4)
+        allowed_ids = [item.document_id for item in documents]
+        dense_score_by_id = dict(
+            self.database.dense_search(query_embedding, candidate_limit, document_ids=allowed_ids)
+        )
+        lexical_query = _fts_query("إجمالي الدرجة التخرج total degree" if total_hours else query)
+        lexical_scores = (
+            dict(self.database.lexical_search(lexical_query, candidate_limit, allowed_ids))
+            if lexical_query
+            else {}
+        )
+        if identifiers:
+            # Exact course/product identifiers must not be crowded out by frequent generic terms.
+            for chunk_id, score in self.database.lexical_search(
+                _fts_query(" ".join(sorted(identifiers))), candidate_limit, allowed_ids
+            ):
+                lexical_scores.setdefault(chunk_id, score)
         candidate_ids = dense_score_by_id.keys() | lexical_scores.keys()
         candidates = self.database.chunks_by_ids(sorted(candidate_ids))
 
@@ -77,8 +103,8 @@ class HybridRetriever:
             )
         )
         if lexical_query:
-            for document_id in latest_candidate_ids:
-                lexical_scores.update(self.database.lexical_search(lexical_query, 1, [document_id]))
+            for latest_id in latest_candidate_ids:
+                lexical_scores.update(self.database.lexical_search(lexical_query, 1, [latest_id]))
 
         lexical_only_ids = sorted(lexical_scores.keys() - dense_score_by_id.keys())
         if lexical_only_ids:
@@ -124,6 +150,13 @@ class HybridRetriever:
             if chunk.chunk_id in lexical_rank:
                 reciprocal_rank += 1 / (60 + lexical_rank[chunk.chunk_id])
             score = reciprocal_rank + max(similarity, 0) * 0.01
+            if identifiers:
+                score += 0.03 * sum(code in chunk.text for code in identifiers) / len(identifiers)
+                score += (
+                    0.03 * sum(f"رقم المساق: {code}" in chunk.text for code in identifiers) / len(identifiers)
+                )
+            if total_hours and "إجمالي الساعات اللازمة للدرجة" in chunk.text:
+                score += 0.04
             scored.append((score, chunk, similarity))
 
         scored.sort(key=lambda item: (item[0], item[1].document.version_sort), reverse=True)
@@ -143,6 +176,7 @@ class HybridRetriever:
                     is_latest_version=chunk.document.document_id in latest_ids,
                     score=score,
                     document_id=chunk.document.document_id,
+                    content_hash=chunk.document.sha256,
                 )
             )
         return results

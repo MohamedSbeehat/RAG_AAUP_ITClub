@@ -15,6 +15,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Document RAG workspace: http://127.0.0.1:8000
-echo Put company files in the documents folder. Keep this window open.
+echo Sign in or create a company account, then upload files in Documents.
+echo Each company has its own folder, shown inside its workspace. Keep this window open.
 uv run --no-sync rag-aaup serve --host 127.0.0.1 --port 8000
 if errorlevel 1 pause

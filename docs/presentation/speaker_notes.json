@@ -1,0 +1,98 @@
+[
+  {
+    "slide": 1,
+    "script": "قدّم CampusIQ كمنتج يجيب من مستندات المؤسسة ويتيح الرجوع إلى الملف المحلي. الجامعة العربية الأمريكية حالة تطبيق أولى، وليست المؤسسة الوحيدة التي يخدمها المنتج. اللقطة من التطبيق العامل، وليست نموذج واجهة افتراضياً.",
+    "refs": [
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/README.md",
+      "docs/presentation/assets/capture_evidence.json"
+    ]
+  },
+  {
+    "slide": 2,
+    "script": "اشرح تجربة المستخدم دون ادعاء نسبة محلية للأسئلة المكررة أو وفراً زمنياً لم يُقَس. الدراسة المنشورة اختبرت مساعداً للمساعدة قبل الالتحاق في GSU. الفرق المقدر 3.3 نقطة مئوية للطلاب الملتزمين بالجامعة، وليس 3.3% نسبة نسبية. لا تنقل أثرها إلى CampusIQ أو إلى فلسطين. نحتاج مقابلات وقياس وقت البحث قبل التجربة الميدانية وبعدها.",
+    "refs": [
+      "https://doi.org/10.1177/2332858417749220"
+    ]
+  },
+  {
+    "slide": 3,
+    "script": "اشرح المسار من اليمين إلى اليسار. FastAPI يتحقق من الجلسة ويحدد المؤسسة من الخادم. المحمل يحفظ اسم الملف والصفحة أو القسم. e5 يعمل محلياً مع بادئتي query وpassage. Qdrant يبحث دلالياً وSQLite FTS5 يبحث بالكلمات، وRRF يدمج النتائج. المساعد يرسل المقاطع والسياق إلى المزود ويقبل الإحالات المعروفة فقط. هذه حماية إحالات ميكانيكية وليست إثباتاً دلالياً لكل جملة. الملفات محلية افتراضياً لكن المقاطع تخرج إلى المزود عند التوليد السحابي. اختيار المكتبات يتوافق مع دليل المسابقة المحلي. لا يستخدم الإطار LangChain.",
+    "refs": [
+      "https://huggingface.co/intfloat/multilingual-e5-small",
+      "https://qdrant.tech/documentation/overview/",
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/src/rag_aaup/api.py",
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/src/rag_aaup/retrieval/service.py"
+    ]
+  },
+  {
+    "slide": 4,
+    "script": "ابدأ من Documents وارفع ملف الخطة، ثم اختره في نطاق البحث. السؤال في اللقطة استرجاع حي من مرجع الشبكات الحقيقي. تحققت الجولة من إرجاع دليل يحتوي 134 ومن فتح PDF محلي بحالة HTTP 200. هذه اللقطة لا تدعي أنها توليد جديد من Gemini، فحصته نفدت أثناء الاختبارات. افتح الصفحة الأولى عند العرض. مرجع CampusIQ تجميع مستقل من الموقع، وليس PDF أصدرته الجامعة ولا دليلاً على سنة النفاذ أو دفعة الطالب. جرّب أيضاً سؤالاً بلا دليل وأوضح أن التوليد الكامل للامتناع ما زال بحاجة إعادة قياس عند توفر الحصة.",
+    "refs": [
+      "https://www.aaup.edu/ar/bachelor-computer-networks-minor-information-security/curriculum",
+      "docs/presentation/assets/capture_evidence.json",
+      "ملف محلي مولّد: output/pdf/AAUP_Computer_Networks_Reference.pdf"
+    ]
+  },
+  {
+    "slide": 5,
+    "script": "58/58 اختبارات Python نجحت أيضاً من نسخة Git نظيفة دون أسرار أو بيانات شركات. اختبار Node يستخدم DOM محاكياً، أما لقطات هذه الجولة فالتقطها متصفح Edge من التطبيق الحقيقي. الاسترجاع 29/29 جرى عبر TestClient وHTTP، مع 9 فحوص رفع وعزل وتنظيف. الخطط 50/50 ضمن الملف المحدد، والتقييم السابق 7/7 محلياً دون تخطٍ؛ بعض مصادره لا تُرفع إلى Git. من 42 محاولة توليد وصلت 14 واجتازت الفحوص المعلنة، وتعذرت 28. 26 رسالة ذكرت الحصة صراحة ورسالتا الإنجليزية كانتا عامتين. أكد فحص المزود حد 20 طلباً يومياً للنموذج في ذلك الحساب. لا تعرض 14/14 كدقة شاملة، ولا تعد الأخطاء نجاحاً أو فشلاً دلالياً. وسيط زمن الاستجابات الناجحة فقط 6.156 ثانية، n=14، وليس وعد أداء أو قياس أحمال.",
+    "refs": [
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/reviewer_pack/reports/VERIFICATION.md",
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/reviewer_pack/reports/live_results.json"
+    ]
+  },
+  {
+    "slide": 6,
+    "script": "المجموع 134,969 للعام 2024/2025 صريح في النص العربي بالمحافظات الشمالية. صفوف المؤسسات في الملخص تعطي 14 جامعة و11 كلية جامعية و10 كليات مجتمع، ومجموع الطلبة 125,827 + 4,137 + 5,005. بيانات غزة غير ممثلة في هذا النطاق، فلا تسوّق الرقم على أنه إجمالي فلسطين ولا تقارنه مباشرة بعام ذي تغطية أخرى. بعض عناوين الجداول الإنجليزية احتفظت بسنة أقدم، لذلك اعتمدنا النص العربي والجدول العربي لعام 2024/25. لا توجد عقود أو حصة سوقية مثبتة للمشروع. الجامعة العربية الأمريكية حالة البدء، ولها 12,053 طالباً في صفها بهذا الملخص، لكن إدراجها هنا لا يعني شراكة تجارية. يقرر الشراء القبول والتسجيل وتقنية المعلومات والخصوصية، وليس الطالب الفرد.",
+    "refs": [
+      "https://www.mohe.pna.ps/LinkClick.aspx?fileticket=aZpJ4JTdBW8%3d&tabid=138&portalid=0&mid=924",
+      "وزارة التربية والتعليم العالي، الكتاب الإحصائي 2024/2025، PDF ص7-8 وص13."
+    ]
+  },
+  {
+    "slide": 7,
+    "script": "لا يوجد سعر بيع معتمد أو إيراد محقق أو عميل دافع مثبت. 149 دولاراً مقترح للاختبار، وليس رقماً سوقياً مثبتاً. السيناريو 2,000 إجابة شهرياً، مع 4,000 token إدخال و1,000 token إخراج مفوتر يشمل التفكير لكل سؤال، بأسعار مرجعية منشورة 1.5 و9 دولار للمليون على Gemini 3.5 Flash. التكلفة المحسوبة 0.015 دولار للسؤال، و30 دولاراً لكل مؤسسة شهرياً، والمساهمة 149-30=119 قبل الاستضافة والدعم والتسويق. يجب قياس usage_metadata وتحديث التعريفة قبل الالتزام بعقد. مصدر Google Cloud للمقارنة مرجع إضافي وليس فاتورة التطبيق. لا تدّعي أن API المجاني أساس تشغيل منتج تجاري. Chatbase Hobby المنشور 40 دولاراً شهرياً أو32 مع الدفع السنوي، لكنه منتج بخصائص ووحدات استهلاك مختلفة، فلا تجعله مقارنة سعرية متكافئة. فوترة العملاء والقياس الشهري لم تنفذ بعد.",
+    "refs": [
+      "https://ai.google.dev/gemini-api/docs/pricing.md",
+      "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+      "https://www.chatbase.co/pricing",
+      "docs/presentation/financial_model.json"
+    ]
+  },
+  {
+    "slide": 8,
+    "script": "كل المبالغ USD. السعر المنشور المرجعي لخادم Basic CPU 4vCPU/8GiB/160GiB هو48 دولاراً شهرياً، والنسخ الأسبوعي20%=9.6. لم نختبر سعة هذا الخادم لعدد المؤسسات. ميزانية الدعم10 ساعات×15 دولاراً=150، والتسويق100، وهما افتراضا ميزانية لا راتب سوقي موثق. الثابت307.6، والمتغير30 لكل مؤسسة؛ لخمس مؤسسات إجمالي457.6. الإيراد745 شهرياً. ميزانية تهيئة الإطلاق120 ساعة×15=1,800 وهي مقترحة وليست نفقة سابقة. للأشهر12/24/36 الإيرادات8940/17880/26820، والتكاليف مع التهيئة7291.2/12782.4/18273.6، والصافي1648.8/5097.6/8546.4. نقطة تغطية التشغيل ceil(307.6/119)=3، ولا تسترد عندها تلقائياً ميزانية الإطلاق. السيناريو يبقي5 مؤسسات والأسعار ثابتة دون تدرج اكتساب أو تسرب أو تضخم أو ضريبة. يتغير مع طول السياق وتفكير النموذج والدعم. هو تحليل حساسية للنموذج وليس وعد ربح أو توقع إيرادات معتمد.",
+    "refs": [
+      "https://www.digitalocean.com/pricing/droplets",
+      "https://docs.digitalocean.com/products/backups/details/pricing/",
+      "https://ai.google.dev/gemini-api/docs/pricing.md",
+      "docs/presentation/financial_model.json"
+    ]
+  },
+  {
+    "slide": 9,
+    "script": "المقارنة مبنية على وصف الموردين والوظائف المقاسة للمشروع، لا على تشغيل الاختبارات نفسها على المنتجات المنافسة. لا تقل إن المنافسين لا يدعمون العربية أو الاستشهاد أو الخصوصية. Chatbase يعرض رفع المعرفة والتكاملات، وCopilot Studio يعرض إنشاء الوكلاء وتوصيل البيانات والحوكمة. التميز المقترح هو ملاءمة سير العمل المحلي وفتح ملف المصدر واختبارات فلسطينية قابلة للإعادة. هذه ليست ميزات حصرية مثبتة في السوق. النسخة الحالية مالك واحد لكل شركة، Qdrant محلي بعملية واحدة، ولا توجد فوترة أو SSO أو شهادة أمنية.",
+    "refs": [
+      "https://www.chatbase.co/pricing",
+      "https://www.microsoft.com/en-us/copilot/products/copilot-studio",
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/reviewer_pack/reports/VERIFICATION.md"
+    ]
+  },
+  {
+    "slide": 10,
+    "script": "توجد الروابط الكاملة والأرقام ومدخلات السيناريو في docs/PROJECT_DOCUMENTATION_AR.md وdocs/presentation/evidence.json وfinancial_model.json. الإطار RAG مخصص ولا يستخدم LangChain. e5 بأبعاد384 محلي؛ Qdrant للمتجهات وSQLite للبحث النصي والبيانات الوصفية والمحادثات. PyMuPDF لاستخراج PDF، ReportLab للمراجع، Tesseract OCR اختياري بعد إعداد العربية والإنجليزية. DOCX عبر python-docx وXLSX عبر openpyxl، وجمع المصادر العامة عبر httpx وBeautifulSoup مع احترام robots. Ollama مدعوم لكنه ليس المزود الذي قيس في تقارير Gemini. إعداد العرض عبر مهارة Presentations وArtifact Tool، بلقطات حقيقية ومخططات وجداول قابلة للتعديل. لا ندعي استخدام Canva المتصل لأنه لم يُربط في الجلسة. استخدم هذه الصفحة للوصول للمراجع ولا تقرأ قائمتها كاملة شفهياً.",
+    "refs": [
+      "https://www.mohe.pna.ps/LinkClick.aspx?fileticket=aZpJ4JTdBW8%3d&tabid=138&portalid=0&mid=924",
+      "https://doi.org/10.1177/2332858417749220",
+      "https://github.com/MohamedSbeehat/RAG_AAUP_ITClub/blob/setup/project-structure/reviewer_pack/reports/VERIFICATION.md",
+      "https://www.aaup.edu/ar/bachelor-computer-networks-minor-information-security/curriculum",
+      "https://huggingface.co/intfloat/multilingual-e5-small",
+      "https://qdrant.tech/documentation/overview/",
+      "https://ai.google.dev/gemini-api/docs/pricing.md",
+      "https://www.digitalocean.com/pricing/droplets",
+      "https://docs.digitalocean.com/products/backups/details/pricing/",
+      "https://www.chatbase.co/pricing",
+      "https://www.microsoft.com/en-us/copilot/products/copilot-studio"
+    ]
+  }
+]

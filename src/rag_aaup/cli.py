@@ -1,5 +1,6 @@
 import argparse
 import logging
+from pathlib import Path
 
 import uvicorn
 
@@ -38,7 +39,10 @@ def doctor(check_provider: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Organization document RAG workspace")
-    parser.add_argument("command", choices=("serve", "index", "doctor"))
+    parser.add_argument("command", choices=("serve", "index", "doctor", "sync-academic", "setup-ocr"))
+    parser.add_argument(
+        "--install-dir", type=Path, help="sync-academic: copy references to this local folder"
+    )
     parser.add_argument(
         "--check-provider", action="store_true", help="Doctor: make a small live generation call"
     )
@@ -46,6 +50,36 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+    if args.command == "sync-academic":
+        from rag_aaup.academic.sync import AcademicReferences
+
+        references = AcademicReferences()
+        state = references.sync(force=True)
+        print(f"Programs: {len(state['programs'])}; errors: {state['errors']}")
+        if state["errors"]:
+            raise SystemExit(1)
+        if args.install_dir:
+            print("Installed:", references.install(args.install_dir))
+        return
+    if args.command == "setup-ocr":
+        import httpx
+
+        target = get_settings().ocr_tessdata_path
+        target.mkdir(parents=True, exist_ok=True)
+        for language in ("ara", "eng"):
+            path = target / f"{language}.traineddata"
+            if not path.exists():
+                response = httpx.get(
+                    f"https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/{language}.traineddata",
+                    timeout=60,
+                )
+                response.raise_for_status()
+                temporary = path.with_suffix(".downloading")
+                temporary.write_bytes(response.content)
+                temporary.replace(path)
+            print(f"OCR language ready: {language}")
+        return
 
     if args.command == "doctor":
         doctor(args.check_provider)
@@ -70,7 +104,7 @@ def main() -> None:
 
     settings = get_settings()
     if args.host not in {"127.0.0.1", "localhost", "::1"} and not (
-        settings.app_password and settings.app_password.get_secret_value()
+        settings.multi_tenant_enabled or (settings.app_password and settings.app_password.get_secret_value())
     ):
         parser.error(
             "Set APP_PASSWORD before exposing the workspace beyond localhost; use HTTPS in deployment."

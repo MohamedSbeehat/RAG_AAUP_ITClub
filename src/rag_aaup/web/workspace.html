@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CampusIQ | مساحة المستندات</title>
+<style>
+:root{font-family:system-ui,"Segoe UI",sans-serif;color:#e6edf8;background:#0c111c;accent-color:#5688ff;--card:#141c2b;--line:#283348;--muted:#a4b2c9;--blue:#487bfa}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}button,input,select,textarea{font:inherit}button,a,input,textarea,select{outline-offset:4px}a{color:#a8c5ff}button{cursor:pointer;border:0;border-radius:9px;background:var(--blue);color:white;padding:11px 20px}button:disabled{opacity:.55;cursor:wait}.secondary{background:#29374d}.danger{background:#bf3f4d}.ghost{background:transparent;border:1px solid var(--line)}.muted{color:var(--muted)}.error{color:#ffb0b6}.success{color:#89d8bd}p{line-height:1.85}h1{font-size:1.85rem;margin:10px 0}h2{font-size:1.2rem;margin:0 0 20px}label{display:block;font-size:.88rem;margin:15px 0 8px}
+.nav{border-bottom:1px solid var(--line);background:#0d1422}.nav-inner{max-width:1180px;margin:auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:20px}.brand{font-weight:800;font-size:1.3rem;letter-spacing:1px}.brand span{color:#7fa7ff}.identity{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:12px}.wrap{max-width:1120px;margin:auto;padding:30px 24px 70px}.eyebrow{font-size:.7rem;letter-spacing:2px;color:#8aadef}.panel{background:var(--card);border:1px solid var(--line);padding:26px;border-radius:15px;margin-top:22px}.tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);margin:26px 0}.tab{background:none;border-radius:0;color:var(--muted);padding:15px 2px;border-bottom:3px solid transparent}.tab[aria-selected=true]{border-color:#75a0ff;color:white}.stats{display:flex;gap:12px;margin:20px 0}.stat{padding:14px 22px;background:#151f32;border:1px solid var(--line);border-radius:12px;min-width:150px}.stat strong{font-size:1.55rem;display:block}.stat span{font-size:.8rem;color:var(--muted)}
+input,textarea,select{color:#edf3ff;background:#0d1523;border:1px solid #3a4863;border-radius:9px;padding:12px;width:100%}input::placeholder,textarea::placeholder{color:#71829f}textarea{min-height:125px;resize:vertical}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row select{width:auto;max-width:100%}.dropzone{border:1px dashed #58719d;border-radius:12px;padding:32px 16px;text-align:center;background:#101a2c;cursor:pointer}.dropzone.drag{background:#1e3459;border-color:#94b7ff}.drop-icon{font-size:2rem;color:#8bafff}.file-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.file-row{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.file-row small{display:block;color:var(--muted);margin-top:5px}.file-row button{padding:7px 12px}.file-row a{text-decoration:none}.notice{padding:14px 18px;background:#182744;border:1px solid #304974;border-radius:10px;line-height:1.8;font-size:.88rem}.source{padding:16px 0;border-bottom:1px solid var(--line)}.source pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font:inherit;line-height:1.85;color:#bfcee5}.source summary{color:var(--muted);cursor:pointer;margin:10px 0}#answer{white-space:pre-wrap;line-height:1.9}.auth{max-width:470px;margin:60px auto}.auth button[type=submit]{width:100%;margin-top:22px}.auth-title{font-size:1.5rem}.auth-toggle{display:block;margin:18px auto 0}code{font-family:ui-monospace,monospace;overflow-wrap:anywhere;color:#b8cdf8;font-size:.78rem;display:block;direction:ltr;text-align:left;line-height:1.8}progress{width:100%;height:14px;accent-color:var(--blue)}.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}.small{font-size:.83rem}
+@media(max-width:650px){.nav-inner,.wrap{padding:16px}.nav-inner{gap:8px}.brand{font-size:1.1rem}.identity{font-size:.75rem}.panel{padding:19px}.split{grid-template-columns:1fr}.stats{gap:8px}.stat{min-width:0;flex:1;padding:12px}h1{font-size:1.5rem}.row button{flex:1}.dropzone{padding:24px 12px}}
+.inline-citation{font-size:.72em;vertical-align:super;text-decoration:none;margin-inline:3px;color:#a8c5ff}.references-title{font-size:.95rem;color:var(--muted);margin:24px 0 0}.source{padding:13px 0}.source:target{background:#1c2a42}.source-links{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:.85rem}#answer p{margin:0 0 14px}.source strong{font-size:.92rem;overflow-wrap:anywhere}
+</style></head>
+<body>
+<nav class="nav"><div class="nav-inner"><div class="brand" dir="ltr">Campus<span>IQ</span></div><div class="identity"><span id="identity">مساحة معرفة خاصة بكل شركة</span><button id="logout" class="ghost" hidden>خروج</button></div></div></nav>
+<section id="auth-panel" class="panel auth" hidden>
+  <span class="eyebrow" dir="ltr">YOUR COMPANY. YOUR KNOWLEDGE.</span><h1 id="auth-title">الدخول إلى مساحة شركتك</h1>
+  <p class="muted small">لكل شركة حسابها وملفاتها ومحادثاتها المستقلة. لا تُشارك المعرفة بين الحسابات.</p>
+  <form id="auth-form"><label for="username">اسم المستخدم</label><input id="username" autocomplete="username" required minlength="3" maxlength="80" pattern="[a-zA-Z0-9_.@\-]+" placeholder="company.admin" dir="ltr">
+    <label for="password">كلمة المرور</label><input id="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128">
+    <div id="register-fields" hidden><label for="company-name">اسم الشركة أو المؤسسة</label><input id="company-name" maxlength="100">
+      <label for="knowledge-mode">نوع مساحة المعرفة</label><select id="knowledge-mode"><option value="organization">ملفات الشركة</option><option value="academic">مراجع أكاديمية</option></select></div>
+    <button id="auth-submit" type="submit">تسجيل الدخول</button><p id="auth-message" class="error" role="alert"></p></form>
+  <button id="auth-toggle" class="ghost auth-toggle">إنشاء حساب شركة جديدة</button>
+</section>
+<main id="app-shell" class="wrap" hidden>
+  <span class="eyebrow" dir="ltr">PRIVATE DOCUMENT WORKSPACE</span><h1 id="app-name">مساعد المستندات</h1><p class="muted">ارفع مستنداتك، ثم اسأل بالعربية أو الإنجليزية واحصل على إجابات مرتبطة بملفاتك المحلية.</p>
+  <div class="stats"><div class="stat"><strong id="document-count">—</strong><span>مستند في قاعدة المعرفة</span></div><div class="stat"><strong id="chunk-count">—</strong><span>مقطع قابل للاسترجاع</span></div><div class="stat"><strong>RAG</strong><span id="organization-name">مساحتك الخاصة</span></div></div>
+  <div class="tabs" role="tablist"><button id="tab-documents" class="tab" role="tab" aria-selected="true">المستندات / Documents</button><button id="tab-chat" class="tab" role="tab" aria-selected="false">المحادثة / Chat</button></div>
+  <div id="documents-pane">
+    <section class="panel"><h2>إضافة مستندات جديدة</h2><p class="muted small">PDF وWord وExcel وMarkdown والنصوص والصور. تُتخطى الملفات المتطابقة في المحتوى تلقائياً عند الرفع.</p>
+      <div id="dropzone" class="dropzone" role="button" tabindex="0"><div class="drop-icon">⇧</div><strong>اسحب ملفاتك هنا أو اخترها من الجهاز</strong><p id="selected-files" class="muted small">الملفات تبقى ضمن مساحة شركتك</p></div>
+      <input id="files" type="file" multiple accept=".pdf,.docx,.xlsx,.txt,.md,.png,.jpg,.jpeg" hidden>
+      <div class="file-actions"><button id="upload">إضافة المستندات</button><button id="academic-import" class="secondary" hidden>إضافة مراجع AAUP المحلية</button></div>
+      <div id="upload-state" hidden><p id="upload-label" class="small"></p><progress id="upload-progress" max="100" value="0"></progress></div><p id="file-message" role="status" aria-live="polite"></p>
+    </section>
+    <section class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">المستندات الحالية</h2><div class="row"><button id="reindex" class="secondary">تحديث وفهرسة</button><button id="clear-all" class="danger">إزالة الكل</button></div></div>
+      <p id="sync-state" class="muted small" role="status" aria-live="polite"></p><div id="document-list"></div>
+      <details style="margin-top:20px"><summary class="muted small">إضافة ملفات مباشرة إلى مجلد مساحة الشركة</summary><code id="directory"></code><p class="muted small">تُلتقط التغييرات تلقائياً. هذا المجلد يخص الشركة المسجّل دخولها فقط.</p></details>
+    </section>
+  </div>
+  <div id="chat-pane" hidden>
+    <div id="setup" class="notice" role="status">جارٍ التحقق من مزود الإجابات...</div>
+    <section class="panel"><form id="form"><label for="question">سؤالك / Your question</label><textarea id="question" required minlength="2" maxlength="4000" placeholder="ما المعلومة التي تريد معرفتها من ملفاتك؟"></textarea>
+      <label for="document-scope">نطاق البحث</label><select id="document-scope"><option value="">كل ملفات شركتي</option></select>
+      <div class="row" style="margin-top:15px"><select id="mode" aria-label="طريقة الإجابة"><option value="answer">إجابة بالمساعد</option><option value="sources">المقتطفات فقط</option></select><button id="submit" disabled>اسأل</button><button id="new-chat" type="button" class="secondary">محادثة جديدة</button></div></form></section>
+    <section id="result" class="panel" hidden><h2>الإجابة</h2><div id="answer"></div><div id="sources"></div></section>
+  </div>
+  <details class="small muted" style="margin-top:32px"><summary>عن المشروع والعرض التقديمي</summary><div class="row" style="margin-top:14px"><a href="/api/project/presentation.pdf" target="_blank" rel="noopener noreferrer">عرض الشرائح PDF</a><a href="/api/project/presentation.pptx">تحميل PowerPoint</a><a href="/api/project/documentation">توثيق المشروع والمراجع</a></div></details>
+</main>
+<script src="/static/workspace.js"></script>
+</body></html>

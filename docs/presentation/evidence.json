@@ -1,0 +1,85 @@
+{
+  "as_of": "2026-11-07",
+  "measured": {
+    "unit_tests": 58,
+    "reviewer_retrieval_passed": 29,
+    "reviewer_retrieval_answerable_cases": 29,
+    "reviewer_cases_total": 42,
+    "curriculum_retrieval_passed": 50,
+    "original_aaup_retrieval_passed": 7,
+    "gemini_passed": 14,
+    "gemini_provider_errors": 28,
+    "median_successful_gemini_seconds": 6.156,
+    "successful_latency_sample_count": 14
+  },
+  "official_market": {
+    "period": "2024/2025",
+    "region": "المحافظات الشمالية فقط",
+    "enrolled_students": 134969,
+    "institutions_in_summary_tables": 35,
+    "institution_type_counts": [
+      14,
+      11,
+      10
+    ],
+    "student_type_counts": [
+      125827,
+      4137,
+      5005
+    ],
+    "types_ar": [
+      "جامعات",
+      "كليات جامعية",
+      "كليات مجتمع"
+    ],
+    "aaup_enrolled_students": 12053,
+    "source_url": "https://www.mohe.pna.ps/LinkClick.aspx?fileticket=aZpJ4JTdBW8%3d&tabid=138&portalid=0&mid=924",
+    "pdf_pages": [
+      7,
+      8,
+      13
+    ],
+    "notice": "Institution counts derived by counting institution rows in the summary tables. Enrolled student total explicitly stated in the 2024/2025 narrative; some English/table labels retain an older year and are not used for the reporting-year claim."
+  },
+  "external_research": {
+    "study": "Page & Gehlbach (2017)",
+    "doi": "https://doi.org/10.1177/2332858417749220",
+    "effect_percentage_points": 3.3,
+    "scope": "GSU-committed students in the randomized field experiment, fall 2016; not CampusIQ results or a Palestine study"
+  },
+  "provenance": {
+    "live_results_lf_utf8_sha256": "8db397b8bbf6cd4a8624aa803427955221efb0390d44b7acf21ea6f0eb8a7c8e",
+    "text_hash_normalization": "UTF-8 with CRLF normalized to LF; PDF hash uses original bytes",
+    "market_pdf_sha256": "da3d59672f3456f9f15deb4b171b792f6ada63f5258adf8a549ae3d91f706225"
+  },
+  "finance": {
+    "api_per_question": 0.015,
+    "api_per_organization_month": 30.0,
+    "fixed_monthly": 307.6,
+    "initial_budget": 1800,
+    "scenario_revenue_monthly": 745,
+    "scenario_expense_monthly": 457.6,
+    "contribution_per_organization_before_fixed": 119.0,
+    "operating_break_even_organizations": 3,
+    "cash_scenario": [
+      {
+        "months": 12,
+        "revenue": 8940,
+        "expense_including_launch": 7291.2,
+        "net_before_tax": 1648.8
+      },
+      {
+        "months": 24,
+        "revenue": 17880,
+        "expense_including_launch": 12782.4,
+        "net_before_tax": 5097.6
+      },
+      {
+        "months": 36,
+        "revenue": 26820,
+        "expense_including_launch": 18273.6,
+        "net_before_tax": 8546.4
+      }
+    ]
+  }
+}

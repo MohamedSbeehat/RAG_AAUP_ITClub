@@ -1,0 +1,68 @@
+{
+  "schema": "campusiq.pitch-finance.v1",
+  "as_of": "2026-11-07",
+  "currency": "USD",
+  "status": "Conditional planning scenario, not actual revenue, signed customers, invoices, or an approved price",
+  "inputs": {
+    "proposed_price_per_organization_month": 149,
+    "scenario_organizations_constant": 5,
+    "assumed_questions_per_organization_month": 2000,
+    "assumed_billable_input_tokens_per_question": 4000,
+    "assumed_billable_output_tokens_including_thinking_per_question": 1000,
+    "reference_input_price_per_million_tokens": 1.5,
+    "reference_output_price_per_million_tokens": 9,
+    "reference_vm_monthly": 48,
+    "reference_backup_fraction": 0.2,
+    "proposed_support_hours_per_month": 10,
+    "proposed_hourly_budget": 15,
+    "proposed_marketing_budget_per_month": 100,
+    "proposed_launch_hardening_hours": 120
+  },
+  "verified_reference_sources": {
+    "vm": "https://www.digitalocean.com/pricing/droplets",
+    "backup": "https://docs.digitalocean.com/products/backups/details/pricing/",
+    "model_tariff_reference": "https://ai.google.dev/gemini-api/docs/pricing.md",
+    "model_tariff_cross_reference": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+    "comparison_product_pricing": "https://www.chatbase.co/pricing"
+  },
+  "limits": [
+    "Only the provider tariff references and VM/backup prices are externally sourced; customer counts, usage, proposed price, hours and budgets are explicit planning assumptions.",
+    "The current local deployment has no measured paid API invoice, paying customers or approved subscription price.",
+    "The billable output assumption includes thinking tokens. Actual usage metadata must be measured before committing to a price.",
+    "The model tariff is a published reference for Gemini 3.5 Flash, not a guarantee of future prices or the project's bill. Rates and availability must be rechecked at purchase.",
+    "The 8 GiB CPU VM is a reference configuration; supported concurrency and tenant capacity have not been load-tested.",
+    "The cash-flow scenario holds five organizations and all prices constant from month one, with no acquisition ramp, churn, inflation or tax. It is not a sales forecast.",
+    "No real employment agreement or cost ledger establishes the hourly budget. Hardening is a proposed launch budget, not historical development spend.",
+    "Billing, per-organization monthly usage quotas and commercial plans are future work. This scenario does not represent implemented billing."
+  ],
+  "derived": {
+    "api_per_question": 0.015,
+    "api_per_organization_month": 30.0,
+    "fixed_monthly": 307.6,
+    "initial_budget": 1800,
+    "scenario_revenue_monthly": 745,
+    "scenario_expense_monthly": 457.6,
+    "contribution_per_organization_before_fixed": 119.0,
+    "operating_break_even_organizations": 3,
+    "cash_scenario": [
+      {
+        "months": 12,
+        "revenue": 8940,
+        "expense_including_launch": 7291.2,
+        "net_before_tax": 1648.8
+      },
+      {
+        "months": 24,
+        "revenue": 17880,
+        "expense_including_launch": 12782.4,
+        "net_before_tax": 5097.6
+      },
+      {
+        "months": 36,
+        "revenue": 26820,
+        "expense_including_launch": 18273.6,
+        "net_before_tax": 8546.4
+      }
+    ]
+  }
+}

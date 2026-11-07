@@ -15,6 +15,8 @@ dist/
 .env.*
 !.env.example
 !.env.company.example
+!.env.saas.example
+**/.rag_trash/
 
 # ---------- Data & generated artifacts (large, rebuildable, or not ours to publish) ----------
 data/raw/*
@@ -28,8 +30,15 @@ indexes/*
 outputs/*
 !outputs/.gitkeep
 .cache/
+.chart-data-*/
+.codex-finalizer/
 documents/*
 !documents/.gitkeep
+workspaces/
+data/academic_sources/
+data/models/
+output/
+tmp/
 
 # ---------- OS / editors ----------
 .DS_Store

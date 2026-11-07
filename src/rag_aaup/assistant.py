@@ -11,7 +11,25 @@ from rag_aaup.generation.service import (
     generate_answer,
 )
 from rag_aaup.indexing.database import Database
+from rag_aaup.processing.chunking import normalize_for_search
 from rag_aaup.retrieval.service import HybridRetriever, SearchResult
+
+
+def contextual_query(query: str, history: list[tuple[str, str]]) -> str:
+    """Resolve short follow-ups using recent user questions, without recycling generated claims."""
+    normalized = normalize_for_search(query)
+    follow_up = search(
+        r"^(?:and\b|what about\b|how about\b|what if\b|also\b|it\b|that\b|"
+        r"طيب\b|طب\b|ماذا عن\b|واذا\b|اذا\b|وهل\b|وكمان\b|وشو\b|"
+        r"وقديش\b|وكم\b|ولو\b|وهسا\b|وهذا\b|وهذه\b)",
+        normalized,
+    )
+    questions = [message for role, message in history if role == "user"][-3:]
+    if follow_up and questions:
+        # Put the current question first for embedding models with a bounded context window.
+        prior = "\n".join(questions)[-3000:]
+        return f"{query}\nسياق أسئلة المستخدم السابقة:\n{prior}"
+    return query
 
 
 @dataclass(frozen=True)
@@ -29,24 +47,20 @@ class AcademicAssistant:
         self.retriever = retriever
 
     def answer(
-        self, query: str, conversation_id: str | None = None, generation_config: Settings | None = None
+        self,
+        query: str,
+        conversation_id: str | None = None,
+        generation_config: Settings | None = None,
+        document_id: int | None = None,
     ) -> AssistantResponse:
         conversation_id = conversation_id or str(uuid.uuid4())
         history = self.database.recent_messages(conversation_id)
-        retrieval_query = query
-        is_follow_up = search(
-            r"(?i)^(?:and\b|what about\b|how about\b|what if\b|also\b|it\b|that\b|"
-            r"طيب\b|ماذا عن\b|وإذا\b|وهل\b|وكمان\b|وهذا\b|وهذه\b)",
-            query.strip(),
+        retrieval_query = contextual_query(query, history)
+        sources = (
+            self.retriever.search(retrieval_query, document_id=document_id)
+            if document_id is not None
+            else self.retriever.search(retrieval_query)
         )
-        if is_follow_up:
-            previous_question = next(
-                (message for role, message in reversed(history) if role == "user"),
-                None,
-            )
-            if previous_question:
-                retrieval_query = f"{previous_question}\n{query}"
-        sources = self.retriever.search(retrieval_query)
         generated: GeneratedAnswer = generate_answer(
             generation_config or self.settings, query, sources, history
         )

@@ -1,0 +1,15 @@
+{
+  "captured_at": "2026-11-07T12:46:56.883Z",
+  "question": "كم إجمالي الساعات المطلوبة لإنهاء تخصص شبكات الحاسوب؟",
+  "provider": "sources_only",
+  "source_pdf": "AAUP_Computer_Networks_Reference.pdf",
+  "local_download_status": 200,
+  "pages": [
+    1,
+    10,
+    22,
+    13,
+    12
+  ],
+  "notice": "Actual running application and live local retrieval. This screenshot does not depict a fresh Gemini-generated answer. No cookies, credentials or tenant identifiers are stored here."
+}
