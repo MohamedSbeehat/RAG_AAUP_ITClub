@@ -73,7 +73,7 @@ function renderSources(data,groups=groupSources(data.sources)){
     for(const source of [...group.sources].sort((a,b)=>(a.page||0)-(b.page||0))){if(source.url&&!seen.has(source.url)){seen.add(source.url);const link=document.createElement("a");link.href=source.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=source.page?`الصفحة ${source.page}`:"فتح الملف";link.title=group.file;links.append(link)}}
     item.append(links);
     const details=document.createElement("details"),summary=document.createElement("summary"),excerpts=[...new Set(group.sources.map(source=>source.text))];
-    summary.textContent=`المقتطفات الداعمة (${excerpts.length})`;details.open=data.provider==="sources_only";details.append(summary);
+    summary.textContent=`المقتطفات الداعمة (${excerpts.length})`;details.open=data.provider==="sources_only"||data.provider==="sources_fallback";details.append(summary);
     for(const text of excerpts){const excerpt=document.createElement("pre");excerpt.textContent=text;details.append(excerpt)}
     item.append(details);container.append(item);
   }

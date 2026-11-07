@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     embedding_device: str = "auto"
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.5-flash"
+    # Comma-separated free models tried after GEMINI_MODEL; each has its own daily free quota.
+    gemini_fallback_models: str = "gemini-3.5-flash-lite,gemini-3.1-flash-lite"
+    groq_api_key: SecretStr | None = None
+    groq_model: str = "openai/gpt-oss-20b"
     ollama_model: str = "qwen2.5:3b"
     llm_provider: str = "auto"
     llm_timeout_seconds: int = Field(default=40, ge=1, le=60)
@@ -56,7 +60,16 @@ def get_settings() -> Settings:
 
 def generation_settings(settings: Settings, env_file: Path | None = None) -> Settings:
     """Reload only provider settings, leaving the active index and embedding model unchanged."""
-    fields = {"gemini_api_key", "gemini_model", "ollama_model", "llm_provider", "llm_timeout_seconds"}
+    fields = {
+        "gemini_api_key",
+        "gemini_model",
+        "gemini_fallback_models",
+        "groq_api_key",
+        "groq_model",
+        "ollama_model",
+        "llm_provider",
+        "llm_timeout_seconds",
+    }
     path = env_file or Path(settings.model_config["env_file"])
     file_values = {key.casefold(): value for key, value in dotenv_values(path).items()}
     environment = {key.casefold(): value for key, value in os.environ.items()}
