@@ -30,16 +30,57 @@ async function refreshStatus(){
   $("#setup").textContent=generationReady?"الإجابات من الملفات المحلية المفهرسة، مع إحالات تفتح المستند الأصلي.":"مزود التوليد غير مهيأ. يمكنك الآن البحث في مقتطفات الملفات؛ تُقرأ إعدادات المزود الجديدة تلقائياً.";updateButton();
 }
 mode.addEventListener("change",()=>{preferredMode=mode.value;updateButton()});
-function renderSources(data){
-  const container=$("#sources");container.replaceChildren();
-  for(const source of data.sources){const item=document.createElement("div");item.className="source";const title=document.createElement("strong");title.textContent=`[${source.citation}] ${source.source}`;item.append(title);
-    if(source.url&&source.url.startsWith("/api/documents/")){const link=document.createElement("a");link.href=source.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="فتح المرجع المحلي";link.style.display="block";link.style.marginTop="9px";item.append(link)}
-    const details=document.createElement("details"),summary=document.createElement("summary"),excerpt=document.createElement("pre");summary.textContent="عرض الدليل المسترجع";excerpt.textContent=source.text;details.open=data.provider==="sources_only";details.append(summary,excerpt);item.append(details);container.append(item)
+function groupSources(sources){
+  const groups=[],byFile=new Map();
+  for(const source of sources){
+    const file=source.source.split(",",1)[0],url=source.url?.startsWith("/api/documents/")?source.url:null;
+    const key=url?url.split("#",1)[0]:file;
+    if(!byFile.has(key)){const group={number:groups.length+1,file,title:source.title||file.split(/[\\/]/).pop(),sources:[]};byFile.set(key,group);groups.push(group)}
+    byFile.get(key).sources.push({...source,url});
+  }
+  return groups;
+}
+function renderAnswer(data,groups){
+  const container=$("#answer");container.replaceChildren();
+  const references=new Map(groups.flatMap(group=>group.sources.map(source=>[source.citation,group.number])));
+  for(const paragraph of data.answer.split(/\n\s*\n/)){
+    if(!paragraph.trim())continue;
+    const block=document.createElement("p");block.dir="auto";const seen=new Set();
+    const tokens=paragraph.split(/(\*\*[^*]+\*\*|(?:\[S\d+\](?:[ \t]*[,،]?[ \t]*\[S\d+\])*))/g);
+    for(const token of tokens){
+      if(!token)continue;
+      if(/^\[S\d+\]/.test(token)){
+        for(const match of token.matchAll(/\[(S\d+)\]/g)){
+          const number=references.get(match[1]);
+          if(number&&seen.has(number))continue;
+          const citation=document.createElement(number?"a":"span");
+          if(number){seen.add(number);citation.className="inline-citation";citation.href="#reference-"+number;citation.setAttribute("aria-label","المرجع "+number);citation.textContent=String(number)}
+          else citation.textContent=match[0];
+          block.append(citation);
+        }
+      }else{const text=document.createElement(token.startsWith("**")?"strong":"span");text.textContent=token.startsWith("**")?token.slice(2,-2):token;block.append(text)}
+    }
+    container.append(block);
+  }
+}
+function renderSources(data,groups=groupSources(data.sources)){
+  const container=$("#sources");container.replaceChildren();if(!groups.length)return;
+  const heading=document.createElement("h3");heading.className="references-title";heading.textContent=`المراجع (${groups.length})`;container.append(heading);
+  for(const group of groups){
+    const item=document.createElement("section");item.className="source";item.id="reference-"+group.number;
+    const title=document.createElement("strong");title.textContent=`[${group.number}] ${group.title.replace(/_/g," ")}`;item.append(title);
+    const links=document.createElement("div");links.className="source-links";const seen=new Set();
+    for(const source of [...group.sources].sort((a,b)=>(a.page||0)-(b.page||0))){if(source.url&&!seen.has(source.url)){seen.add(source.url);const link=document.createElement("a");link.href=source.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=source.page?`الصفحة ${source.page}`:"فتح الملف";link.title=group.file;links.append(link)}}
+    item.append(links);
+    const details=document.createElement("details"),summary=document.createElement("summary"),excerpts=[...new Set(group.sources.map(source=>source.text))];
+    summary.textContent=`المقتطفات الداعمة (${excerpts.length})`;details.open=data.provider==="sources_only";details.append(summary);
+    for(const text of excerpts){const excerpt=document.createElement("pre");excerpt.textContent=text;details.append(excerpt)}
+    item.append(details);container.append(item);
   }
 }
 form.addEventListener("submit",async event=>{
   event.preventDefault();if(pending||!authenticated)return;pending=true;const epoch=viewEpoch;updateButton();$("#result").hidden=false;$("#answer").className="";$("#answer").textContent="";$("#sources").replaceChildren();
-  try{await refreshStatus();if(epoch!==viewEpoch||!authenticated)return;const data=await jsonRequest("/api/ask",{method:"POST",signal:AbortSignal.timeout(requestTimeout+5000),headers:{"Content-Type":"application/json"},body:JSON.stringify({question:$("#question").value,conversation_id:conversationId,mode:mode.value,document_id:$("#document-scope").value?Number($("#document-scope").value):null})});if(epoch!==viewEpoch||!authenticated)return;conversationId=data.conversation_id;$("#answer").textContent=data.answer;renderSources(data)}
+  try{await refreshStatus();if(epoch!==viewEpoch||!authenticated)return;const data=await jsonRequest("/api/ask",{method:"POST",signal:AbortSignal.timeout(requestTimeout+5000),headers:{"Content-Type":"application/json"},body:JSON.stringify({question:$("#question").value,conversation_id:conversationId,mode:mode.value,document_id:$("#document-scope").value?Number($("#document-scope").value):null})});if(epoch!==viewEpoch||!authenticated)return;conversationId=data.conversation_id;const groups=groupSources(data.sources);renderAnswer(data,groups);renderSources(data,groups)}
   catch(error){if(epoch!==viewEpoch)return;$("#answer").className="error";$("#answer").textContent=["TimeoutError","AbortError"].includes(error.name)?"انتهت مهلة الطلب. يمكنك المحاولة مجدداً أو اختيار المقتطفات فقط.":error.message}
   finally{if(epoch===viewEpoch){pending=false;updateButton()}}
 });

@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from rag_aaup.assistant import AcademicAssistant
-from rag_aaup.config import Settings, generation_settings, get_settings
+from rag_aaup.config import PROJECT_ROOT, Settings, generation_settings, get_settings
 from rag_aaup.generation.service import GenerationError, generation_available
 from rag_aaup.indexing.database import Database
 from rag_aaup.indexing.service import SUPPORTED_SUFFIXES, IndexingService, IndexReport
@@ -117,6 +117,28 @@ app = FastAPI(
     version="0.1.0",
     lifespan=_lifespan,
 )
+
+
+@app.get("/api/project/{asset_name}")
+def project_asset(asset_name: str):
+    assets = {
+        "presentation.pdf": ("docs/presentation/CampusIQ_Pitch_AR.pdf", "application/pdf"),
+        "presentation.pptx": (
+            "docs/presentation/CampusIQ_Pitch_AR.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ),
+        "documentation": ("docs/PROJECT_DOCUMENTATION_AR.md", "text/markdown; charset=utf-8"),
+    }
+    entry = assets.get(asset_name)
+    if entry is None or not (PROJECT_ROOT / entry[0]).is_file():
+        raise HTTPException(status_code=404, detail="ملف المشروع غير متاح")
+    path, media_type = entry
+    return FileResponse(
+        PROJECT_ROOT / path,
+        media_type=media_type,
+        filename=Path(path).name,
+        content_disposition_type="inline" if asset_name.endswith(".pdf") else "attachment",
+    )
 
 
 @app.middleware("http")
