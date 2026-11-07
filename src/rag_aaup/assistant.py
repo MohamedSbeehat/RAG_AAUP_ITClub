@@ -8,6 +8,7 @@ from rag_aaup.generation.service import (
     ABSTAIN_EN,
     GeneratedAnswer,
     GenerationError,
+    ProviderUnavailableError,
     generate_answer,
 )
 from rag_aaup.indexing.database import Database
@@ -61,9 +62,21 @@ class AcademicAssistant:
             if document_id is not None
             else self.retriever.search(retrieval_query)
         )
-        generated: GeneratedAnswer = generate_answer(
-            generation_config or self.settings, query, sources, history
-        )
+        try:
+            generated: GeneratedAnswer = generate_answer(
+                generation_config or self.settings, query, sources, history
+            )
+        except ProviderUnavailableError as error:
+            # Retrieval worked but no free LLM answered (quota, invalid key, no internet).
+            # Show the retrieved excerpts with their sources instead of an empty error.
+            # Not saved to history: it is a notice, not an answer to build follow-ups on.
+            arabic = any("؀" <= char <= "ۿ" for char in query)
+            note = (
+                "\n\nهذه أقرب المقتطفات من المستندات بدون صياغة؛ افتح المصدر للتحقق."
+                if arabic
+                else "\n\nBelow are the closest excerpts from the documents, unedited; open each source to verify."
+            )
+            return AssistantResponse(conversation_id, str(error) + note, "sources_fallback", sources)
         if generated.provider != "abstain":
             used = set(findall(r"\[(S\d+)\]", generated.answer))
             allowed = {source.citation for source in sources}

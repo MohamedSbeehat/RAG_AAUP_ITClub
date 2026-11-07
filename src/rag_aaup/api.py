@@ -612,8 +612,9 @@ async def _answer_request(request: AskRequest) -> dict[str, object]:
         raise HTTPException(
             status_code=503,
             detail=(
-                "توليد الإجابات غير مفعّل: أضف مفتاح Gemini إلى GEMINI_API_KEY في ملف .env واحفظه. "
-                "سيُقرأ تلقائياً دون إعادة تشغيل. يمكنك الآن اختيار البحث في المصادر."
+                "توليد الإجابات غير مفعّل: أضف مفتاح GEMINI_API_KEY أو GROQ_API_KEY إلى ملف .env "
+                "واضبط LLM_PROVIDER=auto، أو اختر مزوداً مهيأً. تُقرأ الإعدادات تلقائياً دون إعادة تشغيل. "
+                "يمكنك الآن اختيار البحث في المصادر."
             ),
         )
     try:

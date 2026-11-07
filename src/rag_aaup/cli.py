@@ -14,23 +14,32 @@ def doctor(check_provider: bool) -> None:
     print(f"Organization: {settings.organization_name}; mode: {settings.knowledge_mode}")
     print(f"Documents directory: {settings.raw_dir.resolve()}")
     print(f"Vector backend: Qdrant ({'server' if settings.qdrant_url else 'local'})")
-    print(f"Provider: {settings.llm_provider}; Gemini model: {settings.gemini_model}")
+    print(
+        f"Provider: {settings.llm_provider}; Gemini model: {settings.gemini_model}; "
+        f"Groq model: {settings.groq_model}"
+    )
     print(f"Gemini key configured: {bool(settings.gemini_api_key)} (value hidden)")
+    print(f"Groq key configured: {bool(settings.groq_api_key)} (value hidden)")
     print(f"Workspace password configured: {bool(settings.app_password)}")
     if check_provider:
-        from google.genai.errors import APIError
-
-        from rag_aaup.generation.service import GenerationError, _generate_gemini, _generate_ollama
+        from rag_aaup.generation.service import GenerationError, generate_answer
+        from rag_aaup.retrieval.service import SearchResult
 
         try:
-            if settings.llm_provider == "ollama":
-                result = _generate_ollama(settings, "Reply with exactly: OK")
-            else:
-                result = _generate_gemini(settings, "Reply with exactly: OK")
-            if not result:
+            result = generate_answer(
+                settings,
+                "Reply with exactly: OK",
+                [
+                    SearchResult(
+                        "S1", "Provider connectivity check.", "doctor", "Doctor", None, "", "", True, 1
+                    )
+                ],
+                [],
+            )
+            if not result.answer:
                 raise GenerationError("Empty provider response")
-            print("Live generation check: passed")
-        except (APIError, OSError, RuntimeError) as error:
+            print(f"Live generation check: passed ({result.provider})")
+        except (OSError, RuntimeError) as error:
             print(
                 f"Live generation check: failed ({type(error).__name__}, code={getattr(error, 'code', '-')})"
             )
