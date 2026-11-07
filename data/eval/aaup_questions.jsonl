@@ -1,0 +1,7 @@
+{"id":"regular-credit-limit","question":"ما الحد الأعلى للساعات المعتمدة في الفصل الاعتيادي؟","expected_source":"AAUP_Official_Test_Corpus_2026-11-07.md","must_contain":["19"]}
+{"id":"summer-credit-limit","question":"كم ساعة معتمدة يسمح تسجيلها كحد أقصى في الفصل الصيفي؟","expected_source":"AAUP_Bachelor_Instructions_2026-07-29.pdf","expected_page":4,"must_contain":["10"]}
+{"id":"academic-warning-load","question":"كم ساعة يستطيع الطالب المنذر أكاديمياً تسجيلها في الفصل الاعتيادي التالي؟","expected_source":"AAUP_Bachelor_Instructions_2026-07-29.pdf","expected_page":4,"must_contain":["16"]}
+{"id":"medicine-entry","question":"ما الفرع ومعدل القبول المذكوران لبرنامج دكتور في الطب؟","expected_source":"AAUP_Official_Test_Corpus_2026-11-07.md","must_contain":["90%","العلمي"]}
+{"id":"engineering-bridging","question":"ما الحد الأدنى لمعدل الدبلوم والامتحان الشامل للتجسير إلى الهندسة؟","expected_source":"AAUP_Official_Test_Corpus_2026-11-07.md","must_contain":["80%"]}
+{"id":"transfer-major","question":"متى أقدم طلب الانتقال من تخصص إلى آخر؟","expected_source":"AAUP_Official_Test_Corpus_2026-11-07.md","must_contain":["السحب والإضافة"]}
+{"id":"unpublished-tuition","question":"What is the exact tuition fee per credit for Medicine?","expected_source":"AAUP_Official_Test_Corpus_2026-11-07.md","must_contain":["does not contain a verified per-credit fee"]}
