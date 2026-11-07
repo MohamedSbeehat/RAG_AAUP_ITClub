@@ -4,7 +4,7 @@
 
 ## العرض التقديمي والتوثيق
 
-- [عرض المشروع PDF، 12 شريحة](./docs/presentation/CampusIQ_Pitch_AR.pdf)، و[PowerPoint قابل للتعديل](./docs/presentation/CampusIQ_Pitch_AR.pptx).
+- [عرض المشروع PDF، 10 شرائح](./docs/presentation/CampusIQ_Pitch_AR.pdf)، و[PowerPoint قابل للتعديل](./docs/presentation/CampusIQ_Pitch_AR.pptx).
 - [توثيق المشروع والمراجع والتقنيات](./docs/PROJECT_DOCUMENTATION_AR.md)، و[دليل تقديم العرض في نحو 7 دقائق](./docs/presentation/PRESENTER_GUIDE_AR.md).
 - [مدخلات النموذج المالي](./docs/presentation/financial_model.json)، و[مصادر الأرقام ونتائج القياس](./docs/presentation/evidence.json).
 
