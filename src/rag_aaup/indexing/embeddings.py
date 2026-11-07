@@ -1,4 +1,5 @@
 from functools import lru_cache
+from threading import Lock
 
 import numpy as np
 import torch
@@ -6,9 +7,16 @@ from sentence_transformers import SentenceTransformer
 
 from rag_aaup.config import get_settings
 
+_model_lock = Lock()
+
+
+def get_model() -> SentenceTransformer:
+    with _model_lock:
+        return _load_model()
+
 
 @lru_cache
-def get_model() -> SentenceTransformer:
+def _load_model() -> SentenceTransformer:
     settings = get_settings()
     device = settings.embedding_device
     if device == "auto":

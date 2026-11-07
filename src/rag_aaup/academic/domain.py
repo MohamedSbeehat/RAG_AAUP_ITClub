@@ -46,7 +46,9 @@ class StudyPlan:
     groups: list[CourseGroup]
 
     def semantic_hash(self) -> str:
-        return hashlib.sha256(json.dumps(asdict(self), ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+        return hashlib.sha256(
+            json.dumps(asdict(self), ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
 
 
 def clean(text: str) -> str:
@@ -78,7 +80,9 @@ def parse_curriculum(html: bytes | str, source: dict) -> StudyPlan:
         selection = int(choice.group(1)) if choice else None
         core_rows = table.select("td.course-id")
         if core_rows:
-            kind = "excluded" if "لا تشمل" in raw_rule else "elective" if selection is not None else "required"
+            kind = (
+                "excluded" if "لا تشمل" in raw_rule else "elective" if selection is not None else "required"
+            )
             courses: list[Course] = []
             for cell in core_rows:
                 row = cell.parent
@@ -100,7 +104,9 @@ def parse_curriculum(html: bytes | str, source: dict) -> StudyPlan:
                     courses.append(Course(cells[0], cells[1], cells[2], prerequisites="لم يرد في هذا الجدول"))
             if courses:
                 advisory_number += 1
-                groups.append(CourseGroup(f"التوزيع الإسترشادي - الجدول {advisory_number}", "advisory", None, courses))
+                groups.append(
+                    CourseGroup(f"التوزيع الإسترشادي - الجدول {advisory_number}", "advisory", None, courses)
+                )
     if not groups or not any(group.kind == "required" for group in groups):
         raise ValueError("No usable official curriculum tables found")
     return StudyPlan(source["major_id"], source["slug"], title, source["url"], int(total.group(1)), groups)

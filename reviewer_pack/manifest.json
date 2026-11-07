@@ -1,0 +1,12 @@
+{
+  "schema": "campusiq.reviewer-fixtures.v1",
+  "fixture_version": "1.0",
+  "synthetic": true,
+  "sha256": {
+    "01_Attendance_Policy_2026.pdf": "76e6d5ea42203ad690d004f4e140fc7873936fc0fb91ac89973f87207a27abe0",
+    "02_Registration_GPA.md": "8d4d0373c12f3ab8001b8bdcfb0e0172c15635059065c4b10a099d7be0e5e219",
+    "03_Year_Caps.md": "996d36c7bb3ab238840d9c0aa6e8bce1a621a38543812fa2d3edc254df0d799d",
+    "04_Course_Catalog_2026.pdf": "ee13bb88516241d04d737f0d69687a42f304bc2d43d297efc96f3d2e92810d1e",
+    "05_Responsible_Offices.txt": "3bc6d13771859c404347bb5f049a0b8cdf6515a90b1ca4fa61ba99340837bf06"
+  }
+}

@@ -23,8 +23,13 @@ class Settings(BaseSettings):
     assistant_name: str = "مساعد المستندات"
     app_username: str = "admin"
     app_password: SecretStr | None = None
+    multi_tenant_enabled: bool = False
+    workspace_root: Path = PROJECT_ROOT / "workspaces"
+    session_hours: int = Field(default=12, ge=1, le=168)
     max_upload_size_mb: int = Field(default=25, ge=1, le=500)
     remove_deleted_documents: bool = True
+    ocr_tessdata_path: Path = PROJECT_ROOT / "data" / "models" / "tessdata"
+    ocr_language: str = "ara+eng"
     database_path: Path = PROJECT_ROOT / "indexes" / "rag.sqlite3"
     qdrant_path: Path | None = None
     qdrant_url: str | None = None
