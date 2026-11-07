@@ -1,0 +1,50 @@
+[project]
+name = "rag-aaup"
+version = "0.1.0"
+description = "Smart Academic Advisor: a grounded Arabic/English RAG assistant for university admission & registration questions (IEEE RAG Hackathon)."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "torch==2.14.1",
+    "sentence-transformers>=6.2",
+    "numpy>=2.0",
+    "pymupdf>=2.1",
+    "python-docx>=1.2",
+    "openpyxl>=3.1",
+    "google-genai>=3.0",
+    "ollama>=0.6",
+    "fastapi>=0.162",
+    "uvicorn[standard]>=0.54",
+    "python-multipart>=0.0.20",
+    "pydantic-settings>=2.10",
+    "python-dotenv>=1.2",
+]
+
+[project.scripts]
+rag-aaup = "rag_aaup.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "ruff>=0.14",
+]
+
+# PyTorch with CUDA comes from PyTorch's own package index, not PyPI.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu132", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rag_aaup"
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
