@@ -1,8 +1,6 @@
 import re
 from dataclasses import dataclass
 
-import numpy as np
-
 from rag_aaup.config import Settings
 from rag_aaup.indexing.database import Database, DocumentRecord, StoredChunk
 from rag_aaup.indexing.embeddings import encode_query
@@ -19,6 +17,7 @@ class SearchResult:
     topic: str
     is_latest_version: bool
     score: float
+    document_id: int | None = None
 
 
 def _fts_query(query: str) -> str:
@@ -44,23 +43,61 @@ class HybridRetriever:
         self.database = database
 
     def search(self, query: str, limit: int | None = None) -> list[SearchResult]:
-        chunks = self.database.all_chunks()
-        if not chunks or not query.strip():
+        limit = self.settings.retrieval_limit if limit is None else limit
+        if limit < 1 or not query.strip():
             return []
+        with self.database.search_snapshot():
+            return self._search(query, limit)
 
-        query_embedding = encode_query(query)
-        dense_scores = np.asarray([float(np.dot(chunk.embedding, query_embedding)) for chunk in chunks])
-        dense_order = np.argsort(-dense_scores)
-        dense_rank = {int(chunks[index].chunk_id): rank for rank, index in enumerate(dense_order, start=1)}
-        dense_score_by_id = {chunk.chunk_id: float(dense_scores[index]) for index, chunk in enumerate(chunks)}
-
-        lexical_query = _fts_query(query)
-        lexical = self.database.lexical_search(lexical_query, max(32, len(chunks))) if lexical_query else []
-        lexical_rank = {chunk_id: rank for rank, (chunk_id, _) in enumerate(lexical, start=1)}
-
+    def _search(self, query: str, limit: int) -> list[SearchResult]:
         documents = self.database.documents()
+        if not documents:
+            return []
+        query_embedding = encode_query(query)
+        candidate_limit = max(self.settings.retrieval_candidate_limit, limit * 4)
+        dense_score_by_id = dict(self.database.dense_search(query_embedding, candidate_limit))
+        lexical_query = _fts_query(query)
+        lexical_scores = (
+            dict(self.database.lexical_search(lexical_query, candidate_limit)) if lexical_query else {}
+        )
+        candidate_ids = dense_score_by_id.keys() | lexical_scores.keys()
+        candidates = self.database.chunks_by_ids(sorted(candidate_ids))
+
         latest = _latest_documents(documents)
         latest_ids = {document.document_id for document in latest.values()}
+        latest_candidate_ids = sorted({latest[chunk.document.family_key].document_id for chunk in candidates})
+        # Check the best current evidence per candidate family. A large older edition must not
+        # crowd its newer edition out of the bounded candidate pool.
+        dense_score_by_id.update(
+            self.database.dense_search(
+                query_embedding,
+                len(latest_candidate_ids),
+                document_ids=latest_candidate_ids,
+                group_by_document=True,
+            )
+        )
+        if lexical_query:
+            for document_id in latest_candidate_ids:
+                lexical_scores.update(self.database.lexical_search(lexical_query, 1, [document_id]))
+
+        lexical_only_ids = sorted(lexical_scores.keys() - dense_score_by_id.keys())
+        if lexical_only_ids:
+            dense_score_by_id.update(
+                self.database.dense_search(query_embedding, len(lexical_only_ids), chunk_ids=lexical_only_ids)
+            )
+        chunks = self.database.chunks_by_ids(sorted(dense_score_by_id))
+        dense_rank = {
+            chunk_id: rank
+            for rank, chunk_id in enumerate(
+                sorted(dense_score_by_id, key=lambda key: (-dense_score_by_id[key], key)), start=1
+            )
+        }
+        lexical_rank = {
+            chunk_id: rank
+            for rank, chunk_id in enumerate(
+                sorted(lexical_scores, key=lambda key: (lexical_scores[key], key)), start=1
+            )
+        }
 
         relevant_latest_families: set[str] = set()
         for chunk in chunks:
@@ -78,7 +115,6 @@ class HybridRetriever:
             ):
                 eligible.append(chunk)
 
-        limit = limit or self.settings.retrieval_limit
         scored: list[tuple[float, StoredChunk, float]] = []
         for chunk in eligible:
             similarity = dense_score_by_id[chunk.chunk_id]
@@ -92,7 +128,7 @@ class HybridRetriever:
 
         scored.sort(key=lambda item: (item[0], item[1].document.version_sort), reverse=True)
         results: list[SearchResult] = []
-        for citation_number, (score, chunk, similarity) in enumerate(scored[:limit], start=1):
+        for citation_number, (score, chunk, _) in enumerate(scored[:limit], start=1):
             page_suffix = f", p. {chunk.page}" if chunk.page is not None else ""
             section_suffix = f", {chunk.section}" if chunk.section else ""
             results.append(
@@ -106,6 +142,7 @@ class HybridRetriever:
                     topic=chunk.topic,
                     is_latest_version=chunk.document.document_id in latest_ids,
                     score=score,
+                    document_id=chunk.document.document_id,
                 )
             )
         return results

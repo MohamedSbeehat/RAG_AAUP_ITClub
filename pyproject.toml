@@ -18,6 +18,12 @@ dependencies = [
     "python-multipart>=0.0.20",
     "pydantic-settings>=2.10",
     "python-dotenv>=1.2",
+    "qdrant-client>=1.15,<2",
+    "beautifulsoup4>=4.13",
+    "reportlab>=4.4",
+    "arabic-reshaper>=3.0",
+    "python-bidi>=0.6",
+    "pillow>=11",
 ]
 
 [project.scripts]

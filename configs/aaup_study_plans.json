@@ -1,0 +1,21 @@
+{
+  "university_id": "aaup",
+  "allowed_hosts": ["www.aaup.edu", "aaup.edu"],
+  "sources": [
+    {
+      "major_id": "computer_networks",
+      "slug": "AAUP_Computer_Networks",
+      "url": "https://www.aaup.edu/ar/bachelor-computer-networks-minor-information-security/curriculum"
+    },
+    {
+      "major_id": "computer_science",
+      "slug": "AAUP_Computer_Science",
+      "url": "https://www.aaup.edu/ar/bachelor-computer-science/curriculum"
+    },
+    {
+      "major_id": "ai_robotics",
+      "slug": "AAUP_AI_Robotics",
+      "url": "https://www.aaup.edu/ar/bachelor-artificial-intelligence-specialization-artificial-intelligence-and-robotics/curriculum"
+    }
+  ]
+}

@@ -4,9 +4,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import RLock
+from uuid import uuid4
 
 import numpy as np
 
+from rag_aaup.config import Settings
+from rag_aaup.indexing.vectors import QdrantVectorStore, VectorStoreError, validate_vector
 from rag_aaup.processing.chunking import Chunk
 
 
@@ -29,14 +33,31 @@ class StoredChunk:
     section: str
     topic: str
     document: DocumentRecord
-    embedding: np.ndarray
+    embedding: np.ndarray | None
 
 
 class Database:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, vectors: QdrantVectorStore | None = None):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.vectors = vectors or QdrantVectorStore(path.with_suffix(".qdrant"))
+        self._index_lock = RLock()
+        self._vector_revision: int | None = None
+        self._has_vectors = False
         self._initialize()
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> "Database":
+        return cls(
+            settings.database_path,
+            QdrantVectorStore(
+                path=settings.qdrant_path or settings.database_path.with_suffix(".qdrant"),
+                collection=settings.qdrant_collection,
+                url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None,
+                timeout=settings.qdrant_timeout_seconds,
+            ),
+        )
 
     @contextmanager
     def connect(self) -> Generator[sqlite3.Connection]:
@@ -92,8 +113,82 @@ class Database:
                 );
                 CREATE INDEX IF NOT EXISTS chat_messages_conversation_idx
                     ON chat_messages(conversation_id, message_id);
+                CREATE TABLE IF NOT EXISTS index_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO index_metadata (key, value) VALUES ('revision', '0');
+                CREATE TRIGGER IF NOT EXISTS chunks_vector_insert AFTER INSERT ON chunks BEGIN
+                    UPDATE index_metadata SET value = CAST(value AS INTEGER) + 1 WHERE key = 'revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS chunks_vector_delete AFTER DELETE ON chunks BEGIN
+                    UPDATE index_metadata SET value = CAST(value AS INTEGER) + 1 WHERE key = 'revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS chunks_vector_update AFTER UPDATE ON chunks BEGIN
+                    UPDATE index_metadata SET value = CAST(value AS INTEGER) + 1 WHERE key = 'revision';
+                END;
                 """
             )
+            connection.execute(
+                "INSERT OR IGNORE INTO index_metadata (key, value) VALUES ('database_id', ?)",
+                (str(uuid4()),),
+            )
+            self.database_id = connection.execute(
+                "SELECT value FROM index_metadata WHERE key = 'database_id'"
+            ).fetchone()[0]
+
+    def _revision(self) -> int:
+        with self.connect() as connection:
+            row = connection.execute("SELECT value FROM index_metadata WHERE key = 'revision'").fetchone()
+            return int(row["value"])
+
+    def sync_vectors(self) -> None:
+        with self._index_lock:
+            revision = self._revision()
+            try:
+                if self._vector_revision != revision or (self._has_vectors and not self.vectors.exists()):
+                    chunks = self.all_chunks()
+                    self.vectors.synchronize(chunks, self.database_id)
+                    # Only checkpoint after successful Qdrant writes. Retry a failed sync before search.
+                    self._vector_revision = revision
+                    self._has_vectors = bool(chunks)
+            except VectorStoreError:
+                self._vector_revision = None
+                raise
+
+    @property
+    def vectors_ready(self) -> bool:
+        with self._index_lock:
+            return self._vector_revision == self._revision()
+
+    @contextmanager
+    def search_snapshot(self) -> Generator[None]:
+        """Serialize Qdrant local access and keep metadata stable during hybrid retrieval."""
+        with self._index_lock:
+            self.sync_vectors()
+            yield
+
+    def dense_search(
+        self,
+        vector: np.ndarray,
+        limit: int,
+        chunk_ids: list[int] | None = None,
+        document_ids: list[int] | None = None,
+        group_by_document: bool = False,
+    ) -> list[tuple[int, float]]:
+        with self.search_snapshot():
+            try:
+                return self.vectors.search(
+                    vector, self.database_id, limit, chunk_ids, document_ids, group_by_document
+                )
+            except VectorStoreError:
+                self._vector_revision = None
+                raise
+
+    def close(self) -> None:
+        with self._index_lock:
+            self.vectors.close()
+            self._vector_revision = None
 
     def has_unchanged_document(self, relative_path: str, sha256: str) -> bool:
         with self.connect() as connection:
@@ -115,9 +210,14 @@ class Database:
     ) -> None:
         if len(chunks) != len(embeddings):
             raise ValueError("Each chunk must have exactly one embedding")
+        embeddings = np.asarray(embeddings, dtype=np.float32)
+        if embeddings.ndim != 2:
+            raise ValueError("Embeddings must be a matrix with one row per chunk")
+        for vector in embeddings:
+            validate_vector(vector)
         indexed_at = datetime.now(UTC).isoformat()
 
-        with self.connect() as connection:
+        with self._index_lock, self.connect() as connection:
             old = connection.execute(
                 "SELECT document_id FROM documents WHERE relative_path = ?", (relative_path,)
             ).fetchone()
@@ -172,19 +272,51 @@ class Database:
             ).fetchall()
         return [_document_from_row(row) for row in rows]
 
+    def remove_document(self, relative_path: str) -> None:
+        """Remove derived metadata and lexical rows; vector reconciliation removes its points."""
+        with self._index_lock, self.connect() as connection:
+            connection.execute(
+                "DELETE FROM chunks_fts WHERE chunk_id IN "
+                "(SELECT c.chunk_id FROM chunks c JOIN documents d USING(document_id) "
+                "WHERE d.relative_path = ?)",
+                (relative_path,),
+            )
+            connection.execute("DELETE FROM documents WHERE relative_path = ?", (relative_path,))
+
+    def chunk_count(self) -> int:
+        with self.connect() as connection:
+            return int(connection.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+
     def all_chunks(self) -> list[StoredChunk]:
+        return self._chunks()
+
+    def chunks_by_ids(self, chunk_ids: list[int]) -> list[StoredChunk]:
+        """Fetch only candidate text/metadata; never read cached vector BLOBs on the search path."""
+        return self._chunks(chunk_ids)
+
+    def _chunks(self, chunk_ids: list[int] | None = None) -> list[StoredChunk]:
+        if chunk_ids == []:
+            return []
+        embedding_columns = "c.embedding, c.embedding_dim" if chunk_ids is None else "NULL AS embedding"
+        where = "" if chunk_ids is None else f"WHERE c.chunk_id IN ({','.join('?' for _ in chunk_ids)})"
         with self.connect() as connection:
             rows = connection.execute(
-                """
-                SELECT c.chunk_id, c.text, c.page, c.section, c.topic, c.embedding, c.embedding_dim,
+                f"""
+                SELECT c.chunk_id, c.text, c.page, c.section, c.topic, {embedding_columns},
                        d.document_id, d.relative_path, d.family_key, d.title, d.sha256,
                        d.modified_ns, d.version_sort
                 FROM chunks c JOIN documents d USING(document_id)
-                """
+                {where}
+                """,
+                chunk_ids or [],
             ).fetchall()
         chunks: list[StoredChunk] = []
         for row in rows:
-            vector = np.frombuffer(row["embedding"], dtype=np.float32, count=row["embedding_dim"])
+            vector = (
+                np.frombuffer(row["embedding"], dtype=np.float32, count=row["embedding_dim"])
+                if row["embedding"] is not None
+                else None
+            )
             chunks.append(
                 StoredChunk(
                     chunk_id=row["chunk_id"],
@@ -198,14 +330,27 @@ class Database:
             )
         return chunks
 
-    def lexical_search(self, query: str, limit: int) -> list[tuple[int, float]]:
+    def lexical_search(
+        self, query: str, limit: int, document_ids: list[int] | None = None
+    ) -> list[tuple[int, float]]:
+        if document_ids == []:
+            return []
+        where = ""
+        parameters: list[str | int] = [query]
+        if document_ids is not None:
+            where = (
+                "AND chunk_id IN (SELECT chunk_id FROM chunks WHERE document_id IN "
+                f"({','.join('?' for _ in document_ids)}))"
+            )
+            parameters.extend(document_ids)
+        parameters.append(limit)
         with self.connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT chunk_id, bm25(chunks_fts) AS score
-                FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY score LIMIT ?
+                FROM chunks_fts WHERE chunks_fts MATCH ? {where} ORDER BY score LIMIT ?
                 """,
-                (query, limit),
+                parameters,
             ).fetchall()
         return [(int(row["chunk_id"]), float(row["score"])) for row in rows]
 

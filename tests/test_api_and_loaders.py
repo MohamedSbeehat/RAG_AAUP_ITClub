@@ -9,6 +9,7 @@ from rag_aaup.assistant import AcademicAssistant
 from rag_aaup.config import Settings
 from rag_aaup.generation.service import GeneratedAnswer
 from rag_aaup.indexing.database import Database
+from rag_aaup.indexing.vectors import QdrantVectorStore, VectorStoreError
 from rag_aaup.ingestion.loaders import load_docx, load_pdf
 
 
@@ -54,6 +55,9 @@ def test_api_starts_and_abstains_without_indexed_sources(tmp_path: Path, monkeyp
         health = client.get("/api/health")
         assert health.status_code == 200
         assert health.json()["indexed_documents"] == 0
+        assert health.json()["vector_backend"] == "qdrant"
+        assert health.json()["vector_mode"] == "local"
+        assert health.json()["vector_ready"]
 
         response = client.post("/api/ask", json={"question": "When is the application deadline?"})
         assert response.status_code == 200
@@ -93,3 +97,21 @@ def test_follow_up_question_reuses_previous_question(tmp_path: Path, monkeypatch
 
     assert "What documents are needed for admission?" in retriever.query
     assert "What about the deadline?" in retriever.query
+    database.close()
+
+
+def test_vector_failure_returns_service_error_instead_of_abstaining(tmp_path: Path, monkeypatch) -> None:
+    settings = Settings(raw_dir=tmp_path / "raw", database_path=tmp_path / "rag.sqlite3")
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+
+    def unavailable(*_):
+        raise VectorStoreError("Qdrant is unavailable")
+
+    monkeypatch.setattr(QdrantVectorStore, "synchronize", unavailable)
+    with TestClient(api.app) as client:
+        health = client.get("/api/health")
+        assert health.status_code == 503
+        assert not health.json()["vector_ready"]
+        response = client.post("/api/ask", json={"question": "Admission requirements?"})
+        assert response.status_code == 503
+        assert "Qdrant" in response.json()["detail"]
